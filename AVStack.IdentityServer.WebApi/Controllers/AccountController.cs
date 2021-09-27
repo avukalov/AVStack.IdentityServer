@@ -12,8 +12,8 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace AVStack.IdentityServer.WebApi.Controllers
 {
-    [ApiController]
-    [Route("[controller]")]
+    // [ApiController]
+    // [Route("[controller]")]
     public class AccountController : ControllerBase
     {
         private readonly SignInManager<UserEntity> _signInManager;

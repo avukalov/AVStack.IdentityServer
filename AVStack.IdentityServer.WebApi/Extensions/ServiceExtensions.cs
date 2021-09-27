@@ -94,7 +94,8 @@ namespace AVStack.IdentityServer.WebApi.Extensions
         }
         public static void ConfigureWebApi(this IServiceCollection services)
         {
-            services.AddControllers();
+            // services.AddControllers();
+            services.AddControllersWithViews();
             services.AddSwaggerGen(c =>
             {
                 c.SwaggerDoc(
