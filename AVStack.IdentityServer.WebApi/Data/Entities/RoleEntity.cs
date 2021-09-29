@@ -1,5 +1,5 @@
 using System;
-using AVStack.IdentityServer.Constants;
+using AVStack.IdentityServer.WebApi.Common.Enums;
 using Microsoft.AspNetCore.Identity;
 
 namespace AVStack.IdentityServer.WebApi.Data.Entities

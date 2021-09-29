@@ -1,9 +1,8 @@
-﻿using System;
-
-namespace AVStack.IdentityServer.Constants
+﻿namespace AVStack.IdentityServer.WebApi.Common.Constants
 {
     public static class IdentityRoleDefaults
     {
+        public const string SuperAdministrator = "SuperAdministrator";
         public const string Administrator = "Administrator";
         public const string User = "User";
     }

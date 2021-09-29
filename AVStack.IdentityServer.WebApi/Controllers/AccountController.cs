@@ -2,9 +2,10 @@ using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using System.Threading.Tasks;
-using AVStack.IdentityServer.Constants;
+using AutoMapper;
 using AVStack.IdentityServer.WebApi.Data.Entities;
-using AVStack.MessageBus.Abstraction;
+using AVStack.IdentityServer.WebApi.Models.Business.Interfaces;
+using AVStack.IdentityServer.WebApi.Services.Interfaces;
 using IdentityServer4.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -12,42 +13,38 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace AVStack.IdentityServer.WebApi.Controllers
 {
-    // [ApiController]
-    // [Route("[controller]")]
+    [ApiController]
+    [Route("auth")]
     public class AccountController : ControllerBase
     {
         private readonly SignInManager<UserEntity> _signInManager;
         private readonly UserManager<UserEntity> _userManager;
         private readonly IIdentityServerInteractionService _interactionService;
-        private readonly IMessageBusFactory _busFactory;
+        private readonly IAccountService _accountService;
+        private readonly IMapper _mapper;
         
         public AccountController(
+            
             SignInManager<UserEntity> signInManager, 
             UserManager<UserEntity> userManager, 
             IIdentityServerInteractionService interactionService, 
-            IMessageBusFactory busFactory)
+            IAccountService accountService,
+            IMapper mapper)
         {
             _signInManager = signInManager;
             _userManager = userManager;
             _interactionService = interactionService;
-            _busFactory = busFactory;
+            _accountService = accountService;
+            _mapper = mapper;
         }
 
         [HttpPost]
-        [Route("SignUp")]
-        public async Task<IActionResult> SignUpAsync(SignUpRequestModel newUser)
+        [Route("sign-up")]
+        public async Task<IActionResult> SignUpAsync(SignUpModel signUpModel)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
 
-            var userEntity = new UserEntity
-            {
-                FirstName = newUser.FirstName,
-                LastName = newUser.LastName,
-                Email = newUser.Email,
-                UserName = !string.IsNullOrEmpty(newUser.UserName) ? newUser.UserName : newUser.Email.Split('@')[0]
-            };
-
-            var result = await _userManager.CreateAsync(userEntity, newUser.Password);
+            var result = await _accountService.RegisterUserAsync(signUpModel);
 
             if (!result.Succeeded)
             {
@@ -57,28 +54,15 @@ namespace AVStack.IdentityServer.WebApi.Controllers
                 }
                 return BadRequest(ModelState);
             }
-            
-            await _userManager.AddToRoleAsync(userEntity, IdentityRoleDefaults.User);
 
-            using (var producer = _busFactory.CreateProducer())
-            {
-                var message = JsonSerializer.Serialize(new
-                {
-                    FirstName = userEntity.FirstName,
-                    LastName = userEntity.LastName,
-                    Email = userEntity.Email,
-                    UserName = userEntity.UserName,
-                    EmailConfirmationLink = GenerateConfirmationLink(userEntity)
-                });
-                producer.Publish("confirmation.notification.newsletter", "confirmation.*.*", null, message);
-            }
-            
+            await _accountService.PublishUserRegistration(_mapper.Map<IUser>(result.UserEntity), GenerateConfirmationLink(result.UserEntity));
+
             return Ok();
         }
         
         [HttpPost]
-        [Route("SignIn")]
-        public async Task<IActionResult> SignInAsync([FromBody] SignInRequestModel signInModel)
+        [Route("sign-in")]
+        public async Task<IActionResult> SignInAsync([FromForm] SignInModel signInModel)
         {
             var context = await _interactionService.GetAuthorizationContextAsync(signInModel.ReturnUrl);
             if (!ModelState.IsValid) return BadRequest("Invalid credentials.");
@@ -99,7 +83,7 @@ namespace AVStack.IdentityServer.WebApi.Controllers
             return Ok();
         }
         
-        [HttpGet("EmailConfirmation", Name = "EmailConfirmation")]
+        [HttpGet("email-confirmation", Name = "EmailConfirmation")]
         public async Task<IActionResult> EmailConfirmation(string userId, string token)
         {
             var user = await _userManager.FindByIdAsync(userId);
@@ -118,62 +102,43 @@ namespace AVStack.IdentityServer.WebApi.Controllers
         }
         
         [HttpPost]
-        [Route("SignOut")]
+        [Route("sign-out")]
         public async Task<IActionResult> SignOutAsync()
         {
             if (User?.Identity?.IsAuthenticated == true) await _signInManager.SignOutAsync();
             return Ok();
         }
-
+        
         private string GenerateConfirmationLink(UserEntity userEntity)
         {
-            var confirmationToken = _userManager.GenerateEmailConfirmationTokenAsync(userEntity).Result;
-            var confirmationLink = Url.Action(
+            return Url.Action(
                 nameof(EmailConfirmation),
                 "Account",
                 new
                 {
                     userId = userEntity.Id,
-                    token = confirmationToken
+                    token = _userManager.GenerateEmailConfirmationTokenAsync(userEntity).Result
                 },
                 protocol: HttpContext.Request.Scheme);
-            return confirmationLink;
         }
     }
     
-    public class SignUpRequestModel
+    public class SignUpModel
     {
-        [Required(ErrorMessage = "First name is required.")]
         public string FirstName { get; set; }
-        
-        [Required(ErrorMessage = "Last name is required.")]
         public string LastName { get; set; }
         public string UserName { get; set; }
-        
-        [Required(ErrorMessage = "Email is required.")]
         public string Email { get; set; }
-        
-        [Required(ErrorMessage = "Password is required")]
-        [DataType(DataType.Password)]
         public string Password { get; set; }
-        
-        [DataType(DataType.Password)]
-        [Compare("Password", ErrorMessage = "The password and confirmation password do not match.")]
         public string ConfirmPassword { get; set; }
     }
     
-    public class SignInRequestModel
+    public class SignInModel
     {
-        [Required(ErrorMessage = "Username is required.")]
         public string UserName { get; set; }
-
-        [Required(ErrorMessage = "Password is required.")]
-        [PasswordPropertyText]
         public string Password { get; set; }
-
-        [Required(ErrorMessage = "ReturnUrl is required.")]
         public string ReturnUrl { get; set; }
-        public bool RememberMe { get; set; }
-        
+        public bool RememberMe { get; set; } = false;
+
     }
 }

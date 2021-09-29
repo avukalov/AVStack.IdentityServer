@@ -1,6 +1,6 @@
-namespace AVStack.IdentityServer.Constants
+namespace AVStack.IdentityServer.WebApi.Common.Constants
 {
-    public class IdentityClaimDefaults
+    public static class IdentityClaimDefaults
     {
         public const string FullName = "full_name";
         public const string HasuraPath = "https://hasura.io/jwt/claims";

@@ -19,13 +19,13 @@ namespace AVStack.IdentityServer.WebApi.Data
 
             modelBuilder.ApplyConfiguration(new UserEntityConfiguration());
 
-            modelBuilder.Entity<IdentityUserClaim<Guid>>().ToTable("UserClaim");
-            modelBuilder.Entity<IdentityUserRole<Guid>>().ToTable("UserRole");
-            modelBuilder.Entity<IdentityUserLogin<Guid>>().ToTable("UserLogin");
-            modelBuilder.Entity<IdentityUserToken<Guid>>().ToTable("UserToken");
+            modelBuilder.Entity<IdentityUserClaim<Guid>>().ToTable("AVUserClaim");
+            modelBuilder.Entity<IdentityUserRole<Guid>>().ToTable("AVUserRole");
+            modelBuilder.Entity<IdentityUserLogin<Guid>>().ToTable("AVUserLogin");
+            modelBuilder.Entity<IdentityUserToken<Guid>>().ToTable("AVUserToken");
 
-            modelBuilder.Entity<RoleEntity>().ToTable("Role");
-            modelBuilder.Entity<IdentityRoleClaim<Guid>>().ToTable("RoleClaim");
+            modelBuilder.Entity<RoleEntity>().ToTable("AVRole");
+            modelBuilder.Entity<IdentityRoleClaim<Guid>>().ToTable("AVRoleClaim");
         }
     }
 }
