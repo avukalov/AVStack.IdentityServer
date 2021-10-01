@@ -9,6 +9,6 @@ namespace AVStack.IdentityServer.WebApi.Services.Interfaces
     public interface IAccountService
     {
         Task<IdentityResultExtended> RegisterUserAsync(SignUpModel signUpModel, string role = null);
-        Task PublishUserRegistration(IUser user, string confirmationLink);
+        Task PublishIdentityMessageAsync(string subject, string messageType, string callback, IUser user);
     }
 }

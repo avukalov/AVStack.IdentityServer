@@ -1,8 +1,9 @@
 using System;
 using System.Reflection;
+using AVStack.IdentityServer.Common.Models;
+using AVStack.IdentityServer.Models.Interfaces;
 using AVStack.IdentityServer.WebApi.Data;
 using AVStack.IdentityServer.WebApi.Data.Entities;
-using AVStack.IdentityServer.WebApi.Models;
 using AVStack.IdentityServer.WebApi.Models.Business;
 using AVStack.IdentityServer.WebApi.Models.Business.Interfaces;
 using AVStack.IdentityServer.WebApi.Services;
@@ -41,6 +42,7 @@ namespace AVStack.IdentityServer.WebApi.Extensions
         private static void RegisterModels(this IServiceCollection services)
         {
             services.AddScoped<IUser, User>();
+            services.AddScoped<IIdentityMessage, IdentityMessage>();
         }
         
         private static void RegisterServices(this IServiceCollection services)

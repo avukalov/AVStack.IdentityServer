@@ -1,8 +1,11 @@
+using System;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using System.Threading.Tasks;
 using AutoMapper;
+using AVStack.IdentityServer.Common.Models;
+using AVStack.IdentityServer.Constants;
 using AVStack.IdentityServer.WebApi.Data.Entities;
 using AVStack.IdentityServer.WebApi.Models.Business.Interfaces;
 using AVStack.IdentityServer.WebApi.Services.Interfaces;
@@ -38,6 +41,67 @@ namespace AVStack.IdentityServer.WebApi.Controllers
             _mapper = mapper;
         }
 
+        [HttpGet("email-confirmation", Name = "EmailConfirmation")]
+        public async Task<IActionResult> EmailConfirmation(string userId, string token)
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user.EmailConfirmed)
+            {
+                return BadRequest("Email is already confirmed.");
+            }
+
+            var result = await _userManager.ConfirmEmailAsync(user, token);
+            if (!result.Succeeded)
+            {
+                return BadRequest();
+            }
+
+            // TODO: Redirect to angular
+            return Ok();
+        }
+
+        [HttpPost]
+        [Route("forgot-password")]
+        public async Task<IActionResult> ForgotPassword(ForgotPasswordModel model)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+
+            var user = await _userManager.FindByEmailAsync(model.Email);
+            if (user == null) return BadRequest("Email doesn't exist.");
+
+            var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+            var callback = Url.Action(nameof(ResetPassword), "Account", new { token, email = user.Email }, Request.Scheme);
+
+            await _accountService.PublishIdentityMessageAsync(
+                "PasswordRecovery",
+                nameof(IdentityMessageTypes.PasswordRecovery),
+                await GenerateCallback(IdentityMessageTypes.PasswordRecovery, user),
+                _mapper.Map<IUser>(user));
+            // return RedirectToAction(nameof(ForgotPasswordConfirmation));
+            return Ok();
+        }
+
+        [HttpPost]
+        [Route("reset-password")]
+        public async Task<IActionResult> ResetPassword(ResetPasswordModel model)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+            var user = await _userManager.FindByEmailAsync(model.Email);
+            if (user == null) return BadRequest("Email doesn't exist.");
+
+            var resetPassResult = await _userManager.ResetPasswordAsync(user, model.Token, model.Password);
+            if(!resetPassResult.Succeeded)
+            {
+                foreach (var error in resetPassResult.Errors)
+                {
+                    ModelState.TryAddModelError(error.Code, error.Description);
+                }
+                return BadRequest(ModelState);
+            }
+            // return RedirectToAction(nameof(ResetPasswordConfirmation));
+            return Ok();
+        }
+
         [HttpPost]
         [Route("sign-up")]
         public async Task<IActionResult> SignUpAsync(SignUpModel signUpModel)
@@ -55,7 +119,12 @@ namespace AVStack.IdentityServer.WebApi.Controllers
                 return BadRequest(ModelState);
             }
 
-            await _accountService.PublishUserRegistration(_mapper.Map<IUser>(result.UserEntity), GenerateConfirmationLink(result.UserEntity));
+            // TODO: Add notifications when message is published on other services
+            await _accountService.PublishIdentityMessageAsync(
+                "Email confirmation",
+                nameof(IdentityMessageTypes.UserRegistration),
+                await GenerateCallback(IdentityMessageTypes.UserRegistration, result.UserEntity),
+                _mapper.Map<IUser>(result.UserEntity));
 
             return Ok();
         }
@@ -82,25 +151,7 @@ namespace AVStack.IdentityServer.WebApi.Controllers
             
             return Ok();
         }
-        
-        [HttpGet("email-confirmation", Name = "EmailConfirmation")]
-        public async Task<IActionResult> EmailConfirmation(string userId, string token)
-        {
-            var user = await _userManager.FindByIdAsync(userId);
-            if (user.EmailConfirmed)
-            {
-                return BadRequest("You email is already confirmed.");
-            }
-            
-            var result = await _userManager.ConfirmEmailAsync(user, token);
-            if (!result.Succeeded)
-            {
-                return BadRequest();
-            }
 
-            return Ok();
-        }
-        
         [HttpPost]
         [Route("sign-out")]
         public async Task<IActionResult> SignOutAsync()
@@ -108,19 +159,41 @@ namespace AVStack.IdentityServer.WebApi.Controllers
             if (User?.Identity?.IsAuthenticated == true) await _signInManager.SignOutAsync();
             return Ok();
         }
-        
-        private string GenerateConfirmationLink(UserEntity userEntity)
+
+        private async Task<string> GenerateCallback(IdentityMessageTypes messageType, UserEntity userEntity)
         {
-            return Url.Action(
-                nameof(EmailConfirmation),
-                "Account",
-                new
-                {
-                    userId = userEntity.Id,
-                    token = _userManager.GenerateEmailConfirmationTokenAsync(userEntity).Result
-                },
-                protocol: HttpContext.Request.Scheme);
+            return messageType switch
+            {
+                IdentityMessageTypes.UserRegistration => Url.Action(nameof(EmailConfirmation), "Account",
+                    new
+                    {
+                        userId = userEntity.Id,
+                        token = _userManager.GenerateEmailConfirmationTokenAsync(userEntity).Result
+                    }, protocol: Request.Scheme),
+
+                IdentityMessageTypes.PasswordRecovery => Url.Action(nameof(ResetPassword), "Account",
+                    new
+                    {
+                        Token = await _userManager.GeneratePasswordResetTokenAsync(userEntity),
+                        email = userEntity.Email
+                    }, Request.Scheme),
+
+                _ => throw new ArgumentOutOfRangeException(nameof(messageType), messageType, null)
+            };
         }
+    }
+
+    public class ForgotPasswordModel
+    {
+        public string Email { get; set; }
+    }
+
+    public class ResetPasswordModel
+    {
+        public string Password { get; set; }
+        public string ConfirmPassword { get; set; }
+        public string Email { get; set; }
+        public string Token { get; set; }
     }
     
     public class SignUpModel
