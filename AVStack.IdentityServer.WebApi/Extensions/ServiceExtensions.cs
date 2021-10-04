@@ -52,21 +52,22 @@ namespace AVStack.IdentityServer.WebApi.Extensions
 
         private static void ConfigureNpgsql(this IServiceCollection services, IConfiguration configuration)
         {
-            services.AddDbContext<ApplicationDbContext>(options =>
+            services.AddDbContext<AccountDbContext>(options =>
                 options
                     .UseNpgsql(
-                        configuration.GetSection("ConnectionStrings")["IdentityServerDb"],
+                        configuration.GetSection("ConnectionStrings")["AVAccount"],
                         option =>
                         {
-                            option.MigrationsAssembly(typeof(ApplicationDbContext).GetTypeInfo().Assembly.GetName().Name);
+                            option.MigrationsAssembly(typeof(AccountDbContext).GetTypeInfo().Assembly.GetName().Name);
                             option.UseQuerySplittingBehavior(QuerySplittingBehavior.SingleQuery);
                         }));
                     //.ConfigureWarnings(warnings => warnings.Default(WarningBehavior.Ignore)));
+
         }
 
         private static void ConfigureIdentity(this IServiceCollection services, IConfiguration configuration)
         {
-            
+            // TODO: !!!IMPORTANT!!!  Bind options from appsettings.json to objects and serve them as singletons
             services
                 .AddIdentity<UserEntity, RoleEntity>(option =>
                 {
@@ -86,7 +87,7 @@ namespace AVStack.IdentityServer.WebApi.Extensions
                         DefaultLockoutTimeSpan = TimeSpan.FromDays(365),
                     };
                 })
-                .AddEntityFrameworkStores<ApplicationDbContext>()
+                .AddEntityFrameworkStores<AccountDbContext>()
                 .AddDefaultTokenProviders();
         }
 
@@ -95,6 +96,15 @@ namespace AVStack.IdentityServer.WebApi.Extensions
             services
                 .AddIdentityServer(options =>
                 {
+                    options.UserInteraction = new UserInteractionOptions
+                    {
+                        LoginUrl = configuration.GetSection("IdentityServerOptions")["UserInteraction:LoginUrl"],
+                        LogoutUrl = configuration.GetSection("IdentityServerOptions")["UserInteraction:LogoutUrl"],
+                        ConsentUrl = configuration.GetSection("IdentityServerOptions")["UserInteraction:ConsentUrl"],
+                        ErrorUrl = configuration.GetSection("IdentityServerOptions")["UserInteraction:ErrorUrl"],
+                        DeviceVerificationUrl = configuration.GetSection("IdentityServerOptions")["UserInteraction:DeviceVerificationUrl"],
+                    };
+
                     options.Events = new EventsOptions
                     {
                         RaiseErrorEvents = true,
@@ -102,20 +112,14 @@ namespace AVStack.IdentityServer.WebApi.Extensions
                         RaiseSuccessEvents = false,
                         RaiseInformationEvents = false
                     };
-                    // options.UserInteraction = new UserInteractionOptions
-                    // {
-                    //     LoginUrl = "",
-                    //     LogoutUrl = "",
-                    //     ConsentUrl = ""
-                    // };
                 })
                 .AddAspNetIdentity<UserEntity>()
                 .AddConfigurationStore(options =>
                 {
                     options.ConfigureDbContext = builder =>
-                        builder.UseNpgsql(configuration.GetSection("ConnectionStrings")["IdentityServerDb"], option =>
+                        builder.UseNpgsql(configuration.GetSection("ConnectionStrings")["AVIdentityServer"], option =>
                         {
-                            option.MigrationsAssembly(typeof(ApplicationDbContext).GetTypeInfo().Assembly.GetName().Name);
+                            option.MigrationsAssembly(typeof(AccountDbContext).GetTypeInfo().Assembly.GetName().Name);
                             option.UseQuerySplittingBehavior(QuerySplittingBehavior.SingleQuery);
                         });
                 })
@@ -123,9 +127,9 @@ namespace AVStack.IdentityServer.WebApi.Extensions
                 .AddOperationalStore(options =>
                 {
                     options.ConfigureDbContext = builder =>
-                        builder.UseNpgsql(configuration.GetSection("ConnectionStrings")["IdentityServerDb"],  option =>
+                        builder.UseNpgsql(configuration.GetSection("ConnectionStrings")["AVIdentityServer"],  option =>
                         {
-                            option.MigrationsAssembly(typeof(ApplicationDbContext).GetTypeInfo().Assembly.GetName().Name);
+                            option.MigrationsAssembly(typeof(AccountDbContext).GetTypeInfo().Assembly.GetName().Name);
                             option.UseQuerySplittingBehavior(QuerySplittingBehavior.SingleQuery);
                         });
 

@@ -8,7 +8,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 namespace AVStack.IdentityServer.WebApi.Data.Migrations.Identity
 {
-    [DbContext(typeof(ApplicationDbContext))]
+    [DbContext(typeof(AccountDbContext))]
     partial class ApplicationDbContextModelSnapshot : ModelSnapshot
     {
         protected override void BuildModel(ModelBuilder modelBuilder)

@@ -9,7 +9,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 namespace AVStack.IdentityServer.WebApi.Data.Migrations.Identity
 {
-    [DbContext(typeof(ApplicationDbContext))]
+    [DbContext(typeof(AccountDbContext))]
     [Migration("20210928125603_InitialIdentityDbMigration")]
     partial class InitialIdentityDbMigration
     {

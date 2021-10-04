@@ -27,9 +27,9 @@ namespace AVStack.IdentityServer.WebApi.Extensions
             {
                 if (serviceScope != null)
                 {
-                    var identityContext = serviceScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-                    var configurationContext = serviceScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-                    var persistedGrantContext = serviceScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                    var identityContext = serviceScope.ServiceProvider.GetRequiredService<AccountDbContext>();
+                    var configurationContext = serviceScope.ServiceProvider.GetRequiredService<AccountDbContext>();
+                    var persistedGrantContext = serviceScope.ServiceProvider.GetRequiredService<AccountDbContext>();
                     
                     identityContext.Database.Migrate();
                     configurationContext.Database.Migrate();
@@ -104,7 +104,7 @@ namespace AVStack.IdentityServer.WebApi.Extensions
         }
         private static void SeedRoles(IServiceScope serviceScope)
         {
-            var context = serviceScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var context = serviceScope.ServiceProvider.GetRequiredService<AccountDbContext>();
             if (!context.Roles.Any())
             {
                 var roles = new List<RoleEntity>

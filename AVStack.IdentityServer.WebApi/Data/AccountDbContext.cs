@@ -7,9 +7,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace AVStack.IdentityServer.WebApi.Data
 {
-    public class ApplicationDbContext : IdentityDbContext<UserEntity, RoleEntity, Guid>
+    public class AccountDbContext : IdentityDbContext<UserEntity, RoleEntity, Guid>
     {
-        public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
+        public AccountDbContext(DbContextOptions<AccountDbContext> options) : base(options)
         {
         }
 
