@@ -27,17 +27,19 @@ namespace AVStack.IdentityServer.WebApi.Extensions
     {
         public static void ConfigureServices(this IServiceCollection services, IConfiguration configuration)
         {
-            services.ConfigureCors();
+            services.ConfigureWebApi();
+
             services.ConfigureNpgsql(configuration);
+
+            services.ConfigureCors();
             services.ConfigureIdentity(configuration);
             services.ConfigureIdentityServer(configuration);
-            
-            services.ConfigureWebApi();
-            services.ConfigureMessageBus(configuration);
 
+
+            services.ConfigureMessageBus(configuration);
             services.AddAutoMapper(typeof(Startup));
             services.AddMediatR(typeof(Startup));
-            
+
             services.RegisterModels();
             services.RegisterServices();
         }
@@ -46,7 +48,6 @@ namespace AVStack.IdentityServer.WebApi.Extensions
         {
             services.AddScoped<IUser, User>();
         }
-        
         private static void RegisterServices(this IServiceCollection services)
         {
             services.AddTransient<IReturnUrlParser, ReturnUrlParser>();
@@ -68,12 +69,10 @@ namespace AVStack.IdentityServer.WebApi.Extensions
                     //.ConfigureWarnings(warnings => warnings.Default(WarningBehavior.Ignore)));
 
         }
-
         private static void ConfigureIdentity(this IServiceCollection services, IConfiguration configuration)
         {
             // TODO: !!!IMPORTANT!!!  Bind options from appsettings.json to objects and serve them as singletons
-            services
-                .AddIdentity<UserEntity, RoleEntity>(option =>
+            services.AddIdentity<UserEntity, RoleEntity>(option =>
                 {
                     option.User.RequireUniqueEmail = true;
                     option.Password = new PasswordOptions
@@ -94,7 +93,6 @@ namespace AVStack.IdentityServer.WebApi.Extensions
                 .AddEntityFrameworkStores<AccountDbContext>()
                 .AddDefaultTokenProviders();
         }
-
         private static void ConfigureIdentityServer(this IServiceCollection services, IConfiguration configuration)
         {
             services
@@ -144,7 +142,6 @@ namespace AVStack.IdentityServer.WebApi.Extensions
                 .AddProfileService<ProfileService>()
                 .AddDeveloperSigningCredential();
         }
-
         private static void ConfigureCors(this IServiceCollection services)
         {
             services.AddCors(options =>
@@ -159,15 +156,16 @@ namespace AVStack.IdentityServer.WebApi.Extensions
                 });
             });
         }
-
         private static void ConfigureWebApi(this IServiceCollection services)
         {
-            // services.AddControllers();
-            services.AddControllersWithViews(options => { options.Filters.Add(typeof(ValidateModelStateAttribute)); })
+            services.AddControllers(options =>
+                {
+                    options.Filters.Add(typeof(ValidateModelStateAttribute));
+                })
                 .AddFluentValidation(fv =>
                 {
-                    fv.RegisterValidatorsFromAssembly(typeof(Startup).GetTypeInfo().Assembly);
                     fv.DisableDataAnnotationsValidation = true;
+                    fv.RegisterValidatorsFromAssembly(typeof(Startup).GetTypeInfo().Assembly);
                 });
 
             services.Configure<ApiBehaviorOptions>(options =>
@@ -177,15 +175,20 @@ namespace AVStack.IdentityServer.WebApi.Extensions
 
             services.AddSwaggerGen(c =>
             {
-                c.SwaggerDoc("v1", 
+                c.SwaggerDoc("v1.0.0",
                     new OpenApiInfo
                     {
-                        Title = "AVStack.IdentityServer.WebApi", 
-                        Version = "v1"
+                        Version = "v1.0.0",
+                        Title = "AVStack.IdentityServer",
+                        Description = "Simple IdentityServer built around IdentityServer4 and ASPNETIdentity",
+                        Contact = new OpenApiContact()
+                        {
+                            Name = "Antonio Vukalović",
+                            Email = "vukalovicantonio@gmail.com",
+                        }
                     });
             });
         }
-
         private static void ConfigureMessageBus(this IServiceCollection services, IConfiguration configuration)
         {
             services.AddMessageBus(options =>
@@ -193,7 +196,6 @@ namespace AVStack.IdentityServer.WebApi.Extensions
                 options.Uri = new Uri(configuration.GetSection("RabbitMQ")["Uri"]);
             }, busFactory => busFactory.ConfigureTopology());
         }
-
         private static void ConfigureTopology(this IMessageBusFactory busFactory)
         {
             // Infrastructure
