@@ -1,115 +1,128 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text.Json;
-using System.Threading.Tasks;
 using AutoMapper;
 using AVStack.IdentityServer.Common.Enums;
-using AVStack.IdentityServer.WebApi.Common;
-using AVStack.IdentityServer.WebApi.Common.Constants;
-using AVStack.IdentityServer.WebApi.Controllers;
 using AVStack.IdentityServer.WebApi.Data.Entities;
 using AVStack.IdentityServer.WebApi.Extensions;
-using AVStack.IdentityServer.WebApi.Models.Application;
 using AVStack.IdentityServer.WebApi.Models.Application.Interfaces;
 using AVStack.IdentityServer.WebApi.Models.Commands;
-using AVStack.IdentityServer.WebApi.Models.EventArgs;
+using AVStack.IdentityServer.WebApi.Models.Constants;
 using AVStack.IdentityServer.WebApi.Models.System;
 using AVStack.IdentityServer.WebApi.Services.Interfaces;
-using AVStack.MessageBus.Abstraction;
-using AVStack.MessageBus.Extensions;
-using IdentityServer4.Services;
 using MediatR;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.WebUtilities;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace AVStack.IdentityServer.WebApi.Services
 {
     public class AccountService : IAccountService
     {
-        private const string Monitoring = "monitoring";
-        private const string AccountUserRegistrationKey = "account.user.registration";
-        private const string AccountPasswordResetKey = "account.user.password-reset";
-
-        private readonly IIdentityServerInteractionService _interactionService;
         private readonly SignInManager<UserEntity> _signInManager;
         private readonly UserManager<UserEntity> _userManager;
         private readonly IMediator _mediator;
         private readonly IMapper _mapper;
 
         public AccountService(
-            IIdentityServerInteractionService interactionService,
             SignInManager<UserEntity> signInManager,
             UserManager<UserEntity> userManager,
             IMediator mediator,
             IMapper mapper)
         {
-            _interactionService = interactionService;
             _signInManager = signInManager;
             _userManager = userManager;
             _mediator = mediator;
             _mapper = mapper;
         }
 
+        public async Task<IdentityResultModel> ConfirmEmailAsync(Guid userId, string token)
+        {
+            var result = new IdentityResultModel();
+
+            var userEntity = await _userManager.FindByIdAsync(userId.ToString());
+
+            if (userEntity == null)
+            {
+                result.Errors.Add(IdentityErrorExtensions.EmailNotExist);
+                return result;
+            }
+
+            if (!await _userManager.IsEmailConfirmedAsync(userEntity))
+            {
+                result.Errors.Add(IdentityErrorExtensions.EmailNotConfirmed);
+                return result;
+            }
+
+            return (await _userManager.ConfirmEmailAsync(userEntity, token)).ToIdentityResultModel();
+        }
+
+        public async Task<IdentityResultModel> ForgotPasswordAsync(string email)
+        {
+            var result = new IdentityResultModel();
+
+            var userEntity = await _userManager.FindByEmailAsync(email);
+
+            if (userEntity == null)
+            {
+                result.Errors.Add(IdentityErrorExtensions.EmailNotExist);
+                return result;
+            }
+
+            await _mediator.Send(new PasswordResetRequest
+            {
+                FullName = userEntity.FirstName,
+                EmailAddress = userEntity.Email,
+                Callback = await GenerateCallback(EventType.PasswordRecovery, userEntity)
+            });
+
+            return result;
+        }
+
         public async Task<IdentityResultModel> RegisterUserAsync(IUser newUser, string role = null)
         {
-             var userEntity = _mapper.Map<UserEntity>(newUser);
+            var userEntity = _mapper.Map<UserEntity>(newUser);
 
-            var result = (await _userManager.CreateAsync(userEntity, newUser.Password)).ToModel();
+            var result = (await _userManager.CreateAsync(userEntity, newUser.Password)).ToIdentityResultModel();
 
             if (!result.Succeeded) return result;
             
-            result = (await _userManager.AddToRoleAsync(userEntity, role ?? IdentityRoleDefaults.User)).ToModel();
+            result = (await _userManager.AddToRoleAsync(userEntity, role ?? IdentityRoleDefaults.User)).ToIdentityResultModel();
 
             if (!result.Succeeded) return result;
 
-            _mapper.Map(userEntity, newUser);
-            result.User = newUser;
-
             await _mediator.Send(new UserRegistrationRequest
             {
-                FullName = newUser.FullName,
-                Email = newUser.Email,
+                FullName = userEntity.FullName,
+                EmailAddress = userEntity.Email,
                 Callback = await GenerateCallback(EventType.UserRegistration, userEntity)
             });
 
             return result;
         }
 
-        public async Task<IdentityResultModel> LoginUserAsync(string userName, string password, bool rememberMe)
+        public async Task<IdentityResultModel> ResetPasswordAsync(Guid userId, string password, string token)
         {
-            return (await _signInManager.PasswordSignInAsync(userName, password, rememberMe, true)).ToModel();
+            var result = new IdentityResultModel();
+
+            var userEntity = await _userManager.FindByIdAsync(userId.ToString());
+
+            if (userEntity == null)
+            {
+                result.Errors.Add(IdentityErrorExtensions.EmailNotExist);
+                return result;
+            }
+
+            return (await _userManager.ResetPasswordAsync(userEntity, token, password)).ToIdentityResultModel();
         }
 
-        // public Task PublishPasswordResetAsync(IUser userInfo, string callback)
-        // {
-        //     using (var producer = _busFactory.CreateProducer())
-        //     {
-        //         var basicProperties = producer.CreateBasicProperties();
-        //         basicProperties.SetDefaultValues();
-        //         basicProperties.Type = nameof(PasswordReset);
-        //
-        //         try
-        //         {
-        //             producer.Publish(
-        //                 Monitoring,
-        //                 routingKey:AccountPasswordResetKey,
-        //                 properties:basicProperties,
-        //                 JsonSerializer.Serialize(new PasswordReset()
-        //             {
-        //                 FullName = userInfo.FullName,
-        //                 EmailAddress = userInfo.Email,
-        //                 Callback = callback
-        //             }));
-        //         }
-        //         catch (Exception e)
-        //         {
-        //             Console.WriteLine(e);
-        //         }
-        //     }
-        //
-        //     return Task.CompletedTask;
-        // }
+        public async Task<IdentityResultModel> LoginUserAsync(string userName, string password, bool rememberMe)
+        {
+            return (await _signInManager.PasswordSignInAsync(userName, password, rememberMe, true)).ToIdentityResultModel();
+        }
+        public Task LogoutUserAsync()
+        {
+            return _signInManager.SignOutAsync();
+        }
 
         private async Task<string> GenerateCallback(EventType eventType, UserEntity userEntity)
         {

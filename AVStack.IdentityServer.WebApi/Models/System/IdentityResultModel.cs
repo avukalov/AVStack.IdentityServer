@@ -11,17 +11,5 @@ namespace AVStack.IdentityServer.WebApi.Models.System
         public List<IdentityError> Errors { get; set; }
 
         public IUser User { get; set; }
-
-        public IdentityError InvalidCredentials => new ()
-        {
-            Code = "Login",
-            Description = "Invalid credentials."
-        };
-
-        public IdentityError EmailNotConfirmed => new ()
-        {
-            Code = "Login",
-            Description = "Email address is not confirmed yet."
-        };
     }
 }

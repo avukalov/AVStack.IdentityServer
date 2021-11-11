@@ -1,4 +1,4 @@
-namespace AVStack.IdentityServer.WebApi.Common.Enums
+namespace AVStack.IdentityServer.WebApi.Models.Enums
 {
     public enum RoleLevel
     {

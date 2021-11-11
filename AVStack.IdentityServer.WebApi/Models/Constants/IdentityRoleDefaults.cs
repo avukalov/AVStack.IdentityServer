@@ -1,4 +1,4 @@
-﻿namespace AVStack.IdentityServer.WebApi.Common.Constants
+﻿namespace AVStack.IdentityServer.WebApi.Models.Constants
 {
     public static class IdentityRoleDefaults
     {

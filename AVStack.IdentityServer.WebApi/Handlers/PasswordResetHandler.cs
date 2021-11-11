@@ -11,32 +11,32 @@ using Microsoft.Extensions.Logging;
 
 namespace AVStack.IdentityServer.WebApi.Handlers
 {
-    public class UserRegistrationHandler : AsyncRequestHandler<UserRegistrationRequest>
+    public class PasswordResetHandler : AsyncRequestHandler<PasswordResetRequest>
     {
         private const string Monitoring = "monitoring";
-        private const string AccountUserRegistrationKey = "account.user.registration";
+        private const string AccountPasswordResetKey = "account.user.password-reset";
 
         private readonly IMessageBusFactory _busFactory;
         private readonly ILogger<UserRegistrationHandler> _logger;
 
-        public UserRegistrationHandler(IMessageBusFactory busFactory, ILogger<UserRegistrationHandler> logger)
+        public PasswordResetHandler(IMessageBusFactory busFactory, ILogger<UserRegistrationHandler> logger)
         {
             _busFactory = busFactory;
             _logger = logger;
         }
 
-        protected override Task Handle(UserRegistrationRequest request, CancellationToken cancellationToken)
+        protected override Task Handle(PasswordResetRequest request, CancellationToken cancellationToken)
         {
             using (var producer = _busFactory.CreateProducer())
             {
                 var basicProperties = producer.CreateBasicProperties();
                 basicProperties.SetDefaultValues();
-                basicProperties.Type = nameof(UserRegistration);
+                basicProperties.Type = nameof(PasswordReset);
 
                 try
                 {
-                    producer.Publish(Monitoring, routingKey:AccountUserRegistrationKey, properties:basicProperties,
-                        JsonSerializer.Serialize(new UserRegistration()
+                    producer.Publish(Monitoring, routingKey:AccountPasswordResetKey, properties:basicProperties,
+                        JsonSerializer.Serialize(new PasswordReset()
                         {
                             FullName = request.FullName,
                             EmailAddress = request.EmailAddress,

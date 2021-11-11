@@ -1,146 +1,106 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Net;
 using System.Threading.Tasks;
 using AutoMapper;
-using AVStack.IdentityServer.Common.Enums;
 using AVStack.IdentityServer.WebApi.Controllers.Validators;
-using AVStack.IdentityServer.WebApi.Data.Entities;
-using AVStack.IdentityServer.WebApi.Models;
 using AVStack.IdentityServer.WebApi.Models.Application;
-using AVStack.IdentityServer.WebApi.Models.System;
 using AVStack.IdentityServer.WebApi.Services.Interfaces;
 using IdentityServer4.Services;
-using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.WebUtilities;
-using Microsoft.Extensions.Logging;
 
 
 namespace AVStack.IdentityServer.WebApi.Controllers
 {
+    [AllowAnonymous]
     [ValidateModelState]
     [ApiController]
     [Route("account")]
     public class AccountController : ControllerBase
     {
+        #region Fields
+
         private readonly IIdentityServerInteractionService _interactionService;
-        private readonly SignInManager<UserEntity> _signInManager;
-        private readonly UserManager<UserEntity> _userManager;
         private readonly IAccountService _accountService;
         private readonly IMapper _mapper;
-        private readonly ILogger<AccountController> _logger;
+
+        #endregion
+
+        #region Constructors
 
         public AccountController(
             IIdentityServerInteractionService interactionService,
-            SignInManager<UserEntity> signInManager,
-            UserManager<UserEntity> userManager,
             IAccountService accountService,
-            IMapper mapper,
-            ILogger<AccountController> logger)
+            IMapper mapper)
         {
             _interactionService = interactionService;
-            _signInManager = signInManager;
-            _userManager = userManager;
             _accountService = accountService;
             _mapper = mapper;
-            _logger = logger;
         }
 
-        [HttpPost("email-confirmation", Name = "EmailConfirmation")]
-        public async Task<IActionResult> EmailConfirmation([FromBody] EmailConfirmationModel model)
+        #endregion
+
+        #region Methods
+
+        [HttpPost("email-confirmation")]
+        public async Task<IActionResult> EmailConfirmationAsync([FromBody] EmailConfirmationModel model)
         {
-            // var badRequestResponse = new BadRequestResponse();
-            //
-            // var user = await _userManager.FindByEmailAsync(model.Email);
-            // if (await _userManager.IsEmailConfirmedAsync(user))
-            // {
-            //     badRequestResponse.Errors.Add("Email is already confirmed.");
-            //     return BadRequest(badRequestResponse);
-            // }
-            //
-            // var result = await _userManager.ConfirmEmailAsync(user, model.Token);
-            // if (!result.Succeeded)
-            // {
-            //     badRequestResponse.Errors.Add("Something went wrong while processing confirmation.");
-            //     return BadRequest(badRequestResponse);
-            // }
+            var result = await _accountService.ConfirmEmailAsync(model.UserId, model.Token);
 
-            return Ok();
-        }
-
-        [HttpPost]
-        [Route("forgot-password")]
-        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordModel model)
-        {
-            // var badRequestResponse = new BadRequestResponse();
-            //
-            // var userEntity = await _userManager.FindByEmailAsync(model.Email);
-            // if (userEntity == null)
-            // {
-            //     badRequestResponse.Errors.Add("Email doesn't exist.");
-            //     return BadRequest(badRequestResponse);
-            // }
-            //
-            // var callback = QueryHelpers.AddQueryString(model.ClientUri, new Dictionary<string, string>()
-            // {
-            //     { "email", model.Email },
-            //     { "token", await _userManager.GeneratePasswordResetTokenAsync(userEntity) },
-            // });
-            //
-            // var user = _mapper.Map<User>(userEntity);
-            //
-            // await _accountService.PublishPasswordResetAsync(user, callback);
-
-            return Ok();
-        }
-
-        [HttpPost]
-        [Route("reset-password")]
-        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordModel model)
-        {
-            if (!ModelState.IsValid) return BadRequest(ModelState);
-            var user = await _userManager.FindByEmailAsync(model.Email);
-            if (user == null) return BadRequest("Email doesn't exist.");
-
-            var resetPassResult = await _userManager.ResetPasswordAsync(user, model.Token, model.Password);
-            if(!resetPassResult.Succeeded)
+            if (!result.Succeeded)
             {
-                foreach (var error in resetPassResult.Errors)
-                {
-                    ModelState.TryAddModelError(error.Code, error.Description);
-                }
-                return BadRequest(ModelState);
+                return BadRequest(new { errors = result.Errors.Select(e => e.Description).ToList()});
             }
-            // return RedirectToAction(nameof(ResetPasswordConfirmation));
+
             return Ok();
         }
 
-        [HttpPost]
-        [Route("sign-in")]
+        [HttpPost("forgot-password")]
+        public async Task<IActionResult> ForgotPasswordAsync([FromBody] ForgotPasswordModel model)
+        {
+            var result = await _accountService.ForgotPasswordAsync(model.Email);
+
+            if (!result.Succeeded)
+            {
+                return BadRequest(new { errors = result.Errors.Select(e => e.Description).ToList() });
+            }
+
+            return Ok();
+        }
+
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPasswordAsync([FromBody] ResetPasswordModel model)
+        {
+            var result = await _accountService.ResetPasswordAsync(model.UserId, model.Password, model.Token);
+
+            if (!result.Succeeded)
+            {
+                return BadRequest(new { errors = result.Errors.Select(e => e.Description).ToList() });
+            }
+
+            return Ok();
+        }
+
+        [HttpPost("sign-in")]
         public async Task<IActionResult> SignInAsync([FromBody] SignInModel model)
         {
-            // Since we are receiving request from spa, we do not need to handle cancel
+            // Since we are receiving request from spa, we do not need to handle cancel yet
 
             var context = await _interactionService.GetAuthorizationContextAsync(model.ReturnUrl);
 
             if (context == null) return Unauthorized();
 
             var result = await _accountService.LoginUserAsync(model.UserName, model.Password, model.RememberMe);
+
             if (!result.Succeeded)
             {
-                return BadRequest(new Response
-                {
-                    Errors = result.Errors.Select(e => e.Description).ToList()
-                });
+                return BadRequest(new { errors = result.Errors.Select(e => e.Description).ToList() });
             }
 
-            return Ok(new { RedirectUrl = model.ReturnUrl });
+            return Ok(new { redirectUrl = model.ReturnUrl });
         }
 
-        [HttpPost]
-        [Route("sign-out")]
+        [HttpPost("sign-out")]
         public async Task<IActionResult> SignOutAsync([FromBody] SignOutModel model)
         {
             var context = await _interactionService.GetLogoutContextAsync(model.LogoutId);
@@ -149,61 +109,36 @@ namespace AVStack.IdentityServer.WebApi.Controllers
 
             if (User?.Identity?.IsAuthenticated == true)
             {
-                await _signInManager.SignOutAsync();
+                await _accountService.LogoutUserAsync();
             }
 
             // TODO: Add support for external signout
 
-            return Ok(new
-            {
-                ClientName = string.IsNullOrEmpty(context?.ClientName) ? context?.ClientId : context?.ClientName,
-                context?.PostLogoutRedirectUri,
-                context?.SignOutIFrameUrl,
-                showSignoutPrompt,
-                model.LogoutId
-            });
+            return Ok();
+            // new Handle this response from service
+            // {
+            //     ClientName = string.IsNullOrEmpty(context?.ClientName) ? context?.ClientId : context?.ClientName,
+            //     context?.PostLogoutRedirectUri,
+            //     context?.SignOutIFrameUrl,
+            //     showSignoutPrompt,
+            //     model.LogoutId
+            // }
         }
 
-        [HttpPost]
-        [Route("sign-up")]
+        [HttpPost("sign-up")]
         public async Task<IActionResult> SignUpAsync([FromBody] SignUpModel model)
         {
-
             var result = await _accountService.RegisterUserAsync(_mapper.Map<User>(model));
 
             if (!result.Succeeded)
             {
-                return BadRequest(new Response
-                {
-                    Errors = result.Errors.Select(e => e.Description).ToList()
-                });
+                return BadRequest(new { errors = result.Errors.Select(e => e.Description).ToList() });
             }
 
             return Ok();
         }
 
-        private async Task<string> GenerateCallback(EventType messageType, UserEntity userEntity)
-        {
-            
-            return messageType switch
-            {
-                EventType.UserRegistration => Url.Action(nameof(EmailConfirmation), "Account",
-                    new
-                    {
-                        userId = userEntity.Id,
-                        token = _userManager.GenerateEmailConfirmationTokenAsync(userEntity).Result,
-                    }, protocol: Request.Scheme),
-
-                EventType.PasswordRecovery => Url.Action(nameof(ResetPassword), "Account",
-                    new
-                    {
-                        email = userEntity.Email,
-                        token = _userManager.GeneratePasswordResetTokenAsync(userEntity).Result,
-                    }, Request.Scheme),
-                
-                _ => throw new ArgumentOutOfRangeException(nameof(messageType), messageType, null)
-            };
-        }
+        #endregion
     }
 
     #region MappingConfigurationSection
@@ -229,22 +164,21 @@ namespace AVStack.IdentityServer.WebApi.Controllers
 
     public class EmailConfirmationModel
     {
-        public string Email { get; set; }
+        public Guid UserId { get; set; }
         public string Token { get; set; }
     }
 
     public class ForgotPasswordModel
     {
-        public string ClientUri { get; set; }
         public string Email { get; set; }
     }
 
     public class ResetPasswordModel
     {
+        public Guid UserId { get; set; }
+        public string Token { get; set; }
         public string Password { get; set; }
         public string ConfirmPassword { get; set; }
-        public string Email { get; set; }
-        public string Token { get; set; }
     }
 
     public class SignUpModel

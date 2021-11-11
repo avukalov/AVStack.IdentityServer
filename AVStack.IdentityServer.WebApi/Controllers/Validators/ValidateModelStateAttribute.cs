@@ -17,14 +17,7 @@ namespace AVStack.IdentityServer.WebApi.Controllers.Validators
                     .Select(v => v.ErrorMessage)
                     .ToList();
 
-                var responseObj = new Response()
-                {
-                    Succeeded = false,
-                    StatusCode = 400,
-                    Errors = errors,
-                };
-
-                context.Result = new JsonResult(responseObj)
+                context.Result = new JsonResult(new { errors })
                 {
                     StatusCode = 400
                 };

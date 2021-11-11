@@ -41,46 +41,5 @@ namespace AVStack.IdentityServer.WebApi.Extensions
                 configuration.AddJsonFile($"{settingsFileName}.{environment ?? "Development"}.json", true, true);
             };
         }
-
-        public static IdentityResultModel ToModel(this IdentityResult result)
-        {
-            return new IdentityResultModel
-            {
-                Succeeded = result.Succeeded,
-                Errors = result.Errors.ToList()
-            };
-        }
-
-        public static IdentityResultModel ToModel(this SignInResult result)
-        {
-            var newResult = new IdentityResultModel(){ Succeeded = result.Succeeded };
-
-            if (result.IsLockedOut)
-            {
-                newResult.Errors.Add( new IdentityError()
-                {
-                    Code = "Login",
-                    Description = "User is locked out."
-                });
-            }
-            else if (result.IsNotAllowed)
-            {
-                newResult.Errors.Add( new IdentityError()
-                {
-                    Code = "Login",
-                    Description = "User is not allowed to sign-in."
-                });
-            }
-            else if (result.RequiresTwoFactor)
-            {
-                newResult.Errors.Add( new IdentityError()
-                {
-                    Code = "Login",
-                    Description = "Sign-in requires two-factor."
-                });
-            }
-
-            return newResult;
-        }
     }
 }
