@@ -1,18 +1,20 @@
 using System;
 using System.Reflection;
-using AVStack.IdentityServer.Common.Models;
-using AVStack.IdentityServer.Models.Interfaces;
+using AVStack.IdentityServer.WebApi.Controllers.Validators;
 using AVStack.IdentityServer.WebApi.Data;
 using AVStack.IdentityServer.WebApi.Data.Entities;
-using AVStack.IdentityServer.WebApi.Models.Business;
-using AVStack.IdentityServer.WebApi.Models.Business.Interfaces;
+using AVStack.IdentityServer.WebApi.Models.Application;
+using AVStack.IdentityServer.WebApi.Models.Application.Interfaces;
 using AVStack.IdentityServer.WebApi.Services;
 using AVStack.IdentityServer.WebApi.Services.Interfaces;
 using AVStack.MessageBus.Abstraction;
 using AVStack.MessageBus.Extensions;
 using FluentValidation.AspNetCore;
 using IdentityServer4.Configuration;
+using IdentityServer4.Services;
+using MediatR;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -34,6 +36,7 @@ namespace AVStack.IdentityServer.WebApi.Extensions
             services.ConfigureMessageBus(configuration);
 
             services.AddAutoMapper(typeof(Startup));
+            services.AddMediatR(typeof(Startup));
             
             services.RegisterModels();
             services.RegisterServices();
@@ -42,11 +45,11 @@ namespace AVStack.IdentityServer.WebApi.Extensions
         private static void RegisterModels(this IServiceCollection services)
         {
             services.AddScoped<IUser, User>();
-            services.AddScoped<IIdentityMessage, IdentityMessage>();
         }
         
         private static void RegisterServices(this IServiceCollection services)
         {
+            services.AddTransient<IReturnUrlParser, ReturnUrlParser>();
             services.AddScoped<IAccountService, AccountService>();
         }
 
@@ -58,6 +61,7 @@ namespace AVStack.IdentityServer.WebApi.Extensions
                         configuration.GetSection("ConnectionStrings")["AVAccount"],
                         option =>
                         {
+                            option.UseAdminDatabase("postgres");
                             option.MigrationsAssembly(typeof(AccountDbContext).GetTypeInfo().Assembly.GetName().Name);
                             option.UseQuerySplittingBehavior(QuerySplittingBehavior.SingleQuery);
                         }));
@@ -102,7 +106,7 @@ namespace AVStack.IdentityServer.WebApi.Extensions
                         LogoutUrl = configuration.GetSection("IdentityServerOptions")["UserInteraction:LogoutUrl"],
                         ConsentUrl = configuration.GetSection("IdentityServerOptions")["UserInteraction:ConsentUrl"],
                         ErrorUrl = configuration.GetSection("IdentityServerOptions")["UserInteraction:ErrorUrl"],
-                        DeviceVerificationUrl = configuration.GetSection("IdentityServerOptions")["UserInteraction:DeviceVerificationUrl"],
+                        // DeviceVerificationUrl = configuration.GetSection("IdentityServerOptions")["UserInteraction:DeviceVerificationUrl"],
                     };
 
                     options.Events = new EventsOptions
@@ -134,8 +138,8 @@ namespace AVStack.IdentityServer.WebApi.Extensions
                         });
 
                     // this enables automatic token cleanup. this is optional.
-                    options.EnableTokenCleanup = true;
-                    options.TokenCleanupInterval = 30;
+                    // options.EnableTokenCleanup = true;
+                    // options.TokenCleanupInterval = 30;
                 })
                 .AddProfileService<ProfileService>()
                 .AddDeveloperSigningCredential();
@@ -145,9 +149,13 @@ namespace AVStack.IdentityServer.WebApi.Extensions
         {
             services.AddCors(options =>
             {
-                options.AddPolicy("AllowAnyCorsPolicy", policy =>
+                options.AddPolicy("Default", policy =>
                 {
-                    policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod();
+                    policy
+                        .WithOrigins("http://localhost:4200")
+                        .AllowAnyHeader()
+                        .AllowAnyMethod()
+                        .AllowCredentials();
                 });
             });
         }
@@ -155,11 +163,18 @@ namespace AVStack.IdentityServer.WebApi.Extensions
         private static void ConfigureWebApi(this IServiceCollection services)
         {
             // services.AddControllers();
-            services.AddControllersWithViews().AddFluentValidation(fv =>
+            services.AddControllersWithViews(options => { options.Filters.Add(typeof(ValidateModelStateAttribute)); })
+                .AddFluentValidation(fv =>
+                {
+                    fv.RegisterValidatorsFromAssembly(typeof(Startup).GetTypeInfo().Assembly);
+                    fv.DisableDataAnnotationsValidation = true;
+                });
+
+            services.Configure<ApiBehaviorOptions>(options =>
             {
-                fv.RegisterValidatorsFromAssembly(typeof(Startup).GetTypeInfo().Assembly);
-                fv.DisableDataAnnotationsValidation = true;
+                options.SuppressModelStateInvalidFilter = true;
             });
+
             services.AddSwaggerGen(c =>
             {
                 c.SwaggerDoc("v1", 
@@ -181,13 +196,21 @@ namespace AVStack.IdentityServer.WebApi.Extensions
 
         private static void ConfigureTopology(this IMessageBusFactory busFactory)
         {
-            busFactory.DeclareExchange("email.sms.viber", ExchangeType.Topic);
-            busFactory.DeclareQueue("email");
-            busFactory.DeclareQueue("sms");
-            busFactory.DeclareQueue("viber");
-            busFactory.BindQueue("email", "email.sms.viber", "email.*.*");
-            busFactory.BindQueue("sms", "email.sms.viber", "*.sms.*");
-            busFactory.BindQueue("viber", "email.sms.viber", "*.*.viber");
+            // Infrastructure
+            busFactory.DeclareExchange("monitoring", ExchangeType.Topic);
+
+            busFactory.DeclareExchange("identity-server", ExchangeType.Topic);
+            busFactory.DeclareExchange("account", ExchangeType.Topic);
+
+            busFactory.DeclareQueue("message-center");
+
+
+            // Bindings
+            busFactory.BindExchange("identity-server", "monitoring", "identity-server.#");
+            busFactory.BindExchange("account", "monitoring", "account.#");
+
+            busFactory.BindQueue("message-center", "identity-server", "#");
+            busFactory.BindQueue("message-center", "account", "#");
         }
     }
 }

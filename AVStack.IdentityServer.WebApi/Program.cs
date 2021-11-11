@@ -1,31 +1,45 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+using AVStack.IdentityServer.WebApi.Extensions;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
+using Serilog;
 
 namespace AVStack.IdentityServer.WebApi
 {
     public class Program
     {
-        public static void Main(string[] args)
+        private static int ExitCode { get; set; }
+        public static int Main(string[] args)
         {
-            CreateHostBuilder(args).Build().Run();
+            Log.Logger = Helpers.ConfigureLogger();
+
+            try
+            {
+                Log.Information("Starting host");
+                CreateHost(args).Run();
+                ExitCode = 0;
+            }
+            catch (Exception ex)
+            {
+                Log.Fatal(ex, "Host terminated unexpectedly");
+                ExitCode = 1;
+            }
+            finally
+            {
+                Log.CloseAndFlush();
+            }
+
+            return ExitCode;
         }
 
-        public static IHostBuilder CreateHostBuilder(string[] args) 
+        private static IHost CreateHost(string[] args)
         {
-            return Host.CreateDefaultBuilder(args)
-                .ConfigureAppConfiguration(configuration =>
-                {
-                    configuration.AddJsonFile("appsettings.json", false, true);
-                    configuration.AddJsonFile($"appsettings.{Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")}.json", true, true);
-                })
-                .ConfigureWebHostDefaults(webBuilder => { webBuilder.UseStartup<Startup>(); });
-            
+            return Host
+                .CreateDefaultBuilder(args)
+                .ConfigureAppConfiguration(Helpers.AddConfiguration())
+                .ConfigureWebHostDefaults(wb => wb.UseStartup<Startup>())
+                .UseSerilog()
+                .Build();
         }
     }
 }

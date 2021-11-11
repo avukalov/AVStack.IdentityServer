@@ -8,19 +8,54 @@ using AVStack.IdentityServer.WebApi.Data;
 using AVStack.IdentityServer.WebApi.Data.Entities;
 using IdentityServer4;
 using IdentityServer4.EntityFramework.DbContexts;
+using IdentityServer4.EntityFramework.Entities;
 using IdentityServer4.EntityFramework.Mappers;
 using IdentityServer4.Models;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using IdentityResourceEntity = IdentityServer4.EntityFramework.Entities.IdentityResource;
+
+// Classes
+using Client = IdentityServer4.Models.Client;
+using ApiResource = IdentityServer4.Models.ApiResource;
+using Secret = IdentityServer4.Models.Secret;
 using ClientEntity = IdentityServer4.EntityFramework.Entities.Client;
+using ApiResourceEntity = IdentityServer4.EntityFramework.Entities.ApiResource;
+using IdentityResourceEntity = IdentityServer4.EntityFramework.Entities.IdentityResource;
 
 namespace AVStack.IdentityServer.WebApi.Extensions
 {
     public static class ApplicationExtensions
     {
+        public static void ConfigureApplication(this IApplicationBuilder app)
+        {
+            app.UseCors("Default");
+            app.UseHttpsRedirection();
+
+            app.UseStaticFiles();
+            app.UseRouting();
+
+            app.UseIdentityServer();
+
+            //app.UseAuthentication();
+            app.UseAuthorization();
+
+            app.UseEndpoints(endpoints => { endpoints.MapDefaultControllerRoute(); });
+        }
+        public static void ConfigureDevelopmentApplication(this IApplicationBuilder app)
+        {
+            app.ApplyMigrations();
+            app.InitialSeed();
+
+            app.UseDeveloperExceptionPage();
+            app.UseSwagger();
+            app.UseSwaggerUI(c =>
+                c.SwaggerEndpoint(
+                    "/swagger/v1/swagger.json",
+                    "AVStack.IdentityServer.WebApi v1"
+                ));
+        }
         private static void ApplyMigrations(this IApplicationBuilder app)
         {
             using (var serviceScope = app.ApplicationServices.GetService<IServiceScopeFactory>()?.CreateScope())
@@ -30,7 +65,11 @@ namespace AVStack.IdentityServer.WebApi.Extensions
                     var identityContext = serviceScope.ServiceProvider.GetRequiredService<AccountDbContext>();
                     var configurationContext = serviceScope.ServiceProvider.GetRequiredService<AccountDbContext>();
                     var persistedGrantContext = serviceScope.ServiceProvider.GetRequiredService<AccountDbContext>();
-                    
+
+                    identityContext.Database.EnsureCreated();
+                    configurationContext.Database.EnsureCreated();
+                    persistedGrantContext.Database.EnsureCreated();
+
                     identityContext.Database.Migrate();
                     configurationContext.Database.Migrate();
                     persistedGrantContext.Database.Migrate();
@@ -45,31 +84,34 @@ namespace AVStack.IdentityServer.WebApi.Extensions
                 {
                     SeedRoles(serviceScope);
                     SeedUsers(serviceScope);
+                    SeedApiResources(serviceScope);
                     SeedIdentityResources(serviceScope);
                     SeedClients(serviceScope);
                 }
             }
         }
-        private static void SeedClients(IServiceScope serviceScope)
+
+        private static void SeedApiResources(IServiceScope serviceScope)
         {
             var context = serviceScope.ServiceProvider.GetRequiredService<ConfigurationDbContext>();
-            if (!context.Clients.Any())
+            if (!context.ApiResources.Any())
             {
-                var clients = new List<ClientEntity>
+                var apiResources = new List<ApiResourceEntity>
                 {
-                    new Client
-                    {
-                        ClientId = Guid.NewGuid().ToString(),
-                        ClientName = "ResourceOwnerPassword",
-                        ClientSecrets = new[] {new Secret("secret".Sha512())},
-                        AllowedGrantTypes = GrantTypes.ResourceOwnerPassword,
-                        AllowedScopes = {IdentityServerConstants.StandardScopes.OpenId}
-                    }.ToEntity()
+                    // Identity Server
+                    new ApiResource("avstack.identity-server.api", "AVStack IdentityServer WebApi").ToEntity(),
+                    // new ApiResource("avstack.identity-server.api.read", "AVStack IdentityServer Read").ToEntity(),
+                    // new ApiResource("avstack.identity-server.api.write", "AVStack IdentityServer Write").ToEntity(),
+                    // new ApiResource("avstack.identity-server.api.full", "AVStack IdentityServer Full").ToEntity(),
+
+                    // Message Center
+                    new ApiResource("avstack.message-center.api", "AVStack MessageCenter WebApi").ToEntity(),
                 };
-                context.Clients.AddRange(clients);
+                context.ApiResources.AddRange(apiResources);
                 context.SaveChanges();
             }
         }
+
         private static void SeedIdentityResources(IServiceScope serviceScope)
         {
             var context = serviceScope.ServiceProvider.GetRequiredService<ConfigurationDbContext>();
@@ -78,12 +120,77 @@ namespace AVStack.IdentityServer.WebApi.Extensions
                 var identityResources = new List<IdentityResourceEntity>
                 {
                     new IdentityResources.OpenId().ToEntity(),
-                    new IdentityResources.Profile().ToEntity()
+                    new IdentityResources.Profile().ToEntity(),
+                    new IdentityResources.Address().ToEntity(),
+                    new IdentityResources.Email().ToEntity(),
+                    new IdentityResources.Phone().ToEntity(),
                 };
                 context.IdentityResources.AddRange(identityResources);
                 context.SaveChanges();
             }
         }
+
+        private static void SeedClients(IServiceScope serviceScope)
+        {
+            var context = serviceScope.ServiceProvider.GetRequiredService<ConfigurationDbContext>();
+            if (!context.Clients.Any())
+            {
+                var clients = new List<ClientEntity>
+                {
+                    // AVStack Account Service
+                    new Client
+                    {
+                        ClientId = Guid.NewGuid().ToString(),
+                        ClientName = "avstack.accounts.api",
+                        AllowedGrantTypes = GrantTypes.ClientCredentials,
+                        ClientSecrets = new List<Secret>
+                        {
+                            new Secret("avstack.accounts.api".Sha512()),
+                        },
+                        AllowedScopes =
+                        {
+                            "avstack.message-center.api",
+                        }
+                    }.ToEntity(),
+
+                    // AVStack.Angular SPA application
+                    new Client
+                    {
+                        ClientId = Guid.NewGuid().ToString(),
+                        ClientName = "avstack.accounts.ui",
+                        AllowedGrantTypes = GrantTypes.Code,
+                        AllowOfflineAccess = true,
+                        RequireClientSecret = false,
+                        RequirePkce = true,
+                        AllowAccessTokensViaBrowser = true,
+                        RequireConsent = false,
+                        AccessTokenLifetime = 600,
+                        RedirectUris = new List<string>
+                        {
+                            "http://localhost:4200/account/signin-callback",
+                            "http://localhost:4200/assets/silent-callback.html"
+                        },
+                        PostLogoutRedirectUris = new List<string>
+                        {
+                            "http://localhost:4200/account/signout-callback"
+                        },
+                        AllowedCorsOrigins = { "http://localhost:4200" },
+                        AllowedScopes =
+                        {
+                            IdentityServerConstants.StandardScopes.OpenId,
+                            IdentityServerConstants.StandardScopes.Profile,
+                            IdentityServerConstants.StandardScopes.Address,
+                            IdentityServerConstants.StandardScopes.Email,
+                            IdentityServerConstants.StandardScopes.Phone,
+                        },
+
+                    }.ToEntity()
+                };
+                context.Clients.AddRange(clients);
+                context.SaveChanges();
+            }
+        }
+
         private static void SeedUsers(IServiceScope serviceScope)
         {
             var userManager = serviceScope.ServiceProvider.GetRequiredService<UserManager<UserEntity>>();
@@ -134,31 +241,6 @@ namespace AVStack.IdentityServer.WebApi.Extensions
                 context.SaveChanges();
             }
         }
-        public static void ConfigureApplication(this IApplicationBuilder app)
-        {
-            app.UseCors("AllowAnyCorsPolicy");
-            app.UseHttpsRedirection();
-            app.UseStaticFiles();
-            app.UseRouting();
 
-            app.UseIdentityServer();
-            app.UseAuthentication();
-            app.UseAuthorization();
-
-            app.UseEndpoints(endpoints => { endpoints.MapDefaultControllerRoute(); });
-        }
-        public static void ConfigureDevelopmentApplication(this IApplicationBuilder app)
-        {
-            app.ApplyMigrations();
-            app.InitialSeed();
-            
-            app.UseDeveloperExceptionPage();
-            app.UseSwagger();
-            app.UseSwaggerUI(c =>
-                c.SwaggerEndpoint(
-                    "/swagger/v1/swagger.json", 
-                    "AVStack.IdentityServer.WebApi v1"
-                ));
-        }
     }
 }

@@ -8,13 +8,13 @@
     <ItemGroup>
         <PackageReference Include="AutoMapper" Version="10.1.1" />
         <PackageReference Include="AutoMapper.Extensions.Microsoft.DependencyInjection" Version="8.1.1" />
-        <PackageReference Include="AVStack.MessageBus.Extensions" Version="1.0.2" />
-        <PackageReference Include="AVStack.MessageBus.RabbitMQ" Version="1.0.3" />
         <PackageReference Include="FluentValidation.AspNetCore" Version="10.3.3" />
         <PackageReference Include="IdentityServer4" Version="4.1.2" />
         <PackageReference Include="IdentityServer4.AspNetIdentity" Version="4.1.2" />
         <PackageReference Include="IdentityServer4.EntityFramework" Version="4.1.2" />
         <PackageReference Include="IdentityServer4.EntityFramework.Storage" Version="4.1.2" />
+        <PackageReference Include="MediatR" Version="9.0.0" />
+        <PackageReference Include="MediatR.Extensions.Microsoft.DependencyInjection" Version="9.0.0" />
         <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="5.0.10" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="5.0.10">
           <PrivateAssets>all</PrivateAssets>
@@ -22,11 +22,22 @@
         </PackageReference>
         <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="5.0.10" />
+        <PackageReference Include="Serilog" Version="2.10.0" />
+        <PackageReference Include="Serilog.AspNetCore" Version="4.1.0" />
+        <PackageReference Include="Serilog.Settings.Configuration" Version="3.3.0" />
+        <PackageReference Include="Serilog.Sinks.Console" Version="4.0.0" />
         <PackageReference Include="Swashbuckle.AspNetCore" Version="6.2.2" />
     </ItemGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\..\AVStack.MessageBus\AVStack.MessageBus.Extensions\AVStack.MessageBus.Extensions.csproj" />
+      <ProjectReference Include="..\..\AVStack.MessageCenter\AVStack.MessageCenter.Common\AVStack.MessageCenter.Common.csproj" />
       <ProjectReference Include="..\AVStack.IdentityServer.Common\AVStack.IdentityServer.Common.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="Common\Models" />
+      <Folder Include="Models\Queries" />
     </ItemGroup>
 
 </Project>

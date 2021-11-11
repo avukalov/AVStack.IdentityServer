@@ -1,7 +1,7 @@
 using System;
-using AVStack.IdentityServer.WebApi.Models.Business.Interfaces;
+using AVStack.IdentityServer.WebApi.Models.Application.Interfaces;
 
-namespace AVStack.IdentityServer.WebApi.Models.Business
+namespace AVStack.IdentityServer.WebApi.Models.Application
 {
     public class User : IUser
     {
@@ -10,6 +10,9 @@ namespace AVStack.IdentityServer.WebApi.Models.Business
         public string LastName { get; set; }
         public string UserName { get; set; }
         public string Email { get; set; }
+        public string Password { get; set; }
+
+        public string FullName => $"{FirstName} {LastName}";
         // public Guid AccountId { get; set; }
     }
 }
