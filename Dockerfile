@@ -10,7 +10,7 @@ COPY ./LocalNugets /tmp/LocalNugets
 COPY ./*.sln ./
 COPY ./*/*.csproj ./
 RUN for file in $(ls *.csproj); do mkdir -p ${file%.*}/ && mv $file ${file%.*}/; done
-
+RUN dotnet restore "AVStack.IdentityServer.sln" --packages /tmp/LocalNugets
 COPY . .
 WORKDIR "/src"
 RUN dotnet build "AVStack.IdentityServer.sln" -c Release -o /app/build
