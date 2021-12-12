@@ -1,6 +1,5 @@
 using System.Linq;
 using AVStack.IdentityServer.WebApi.Models;
-using AVStack.IdentityServer.WebApi.Models.System;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 

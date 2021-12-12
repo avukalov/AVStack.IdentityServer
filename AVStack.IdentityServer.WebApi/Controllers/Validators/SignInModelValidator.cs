@@ -1,8 +1,9 @@
+using AVStack.IdentityServer.WebApi.Models.Requests;
 using FluentValidation;
 
 namespace AVStack.IdentityServer.WebApi.Controllers.Validators
 {
-    public class SignInModelValidator : AbstractValidator<SignInModel>
+    public class SignInModelValidator : AbstractValidator<SignInRequest>
     {
         public SignInModelValidator()
         {

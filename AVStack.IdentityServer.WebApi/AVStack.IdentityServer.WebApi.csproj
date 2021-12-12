@@ -8,6 +8,9 @@
     <ItemGroup>
         <PackageReference Include="AutoMapper" Version="10.1.1" />
         <PackageReference Include="AutoMapper.Extensions.Microsoft.DependencyInjection" Version="8.1.1" />
+        <PackageReference Include="AVStack.MessageBus.Abstraction" Version="1.1.0" />
+        <PackageReference Include="AVStack.MessageBus.Extensions" Version="1.1.0" />
+        <PackageReference Include="AVStack.MessageBus.RabbitMQ" Version="1.1.0" />
         <PackageReference Include="FluentValidation.AspNetCore" Version="10.3.3" />
         <PackageReference Include="IdentityServer4" Version="4.1.2" />
         <PackageReference Include="IdentityServer4.AspNetIdentity" Version="4.1.2" />
@@ -30,8 +33,6 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\AVStack.MessageBus\AVStack.MessageBus.Extensions\AVStack.MessageBus.Extensions.csproj" />
-      <ProjectReference Include="..\..\AVStack.MessageCenter\AVStack.MessageCenter.Common\AVStack.MessageCenter.Common.csproj" />
       <ProjectReference Include="..\AVStack.IdentityServer.Common\AVStack.IdentityServer.Common.csproj" />
     </ItemGroup>
 
@@ -182,6 +183,10 @@
       <_ContentIncludedByDefault Remove="wwwroot\lib\jquery\dist\jquery.slim.min.map" />
       <_ContentIncludedByDefault Remove="wwwroot\lib\jquery\LICENSE.txt" />
       <_ContentIncludedByDefault Remove="wwwroot\lib\jquery\README.md" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="Services\Interfaces" />
     </ItemGroup>
 
 </Project>

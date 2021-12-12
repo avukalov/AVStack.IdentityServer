@@ -1,8 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using AVStack.IdentityServer.WebApi.Models.System;
+using System.Threading.Tasks;
+using AVStack.IdentityServer.Common.Enums;
+using AVStack.IdentityServer.WebApi.Data.Entities;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Configuration;
 using Serilog;
 using Serilog.Core;
@@ -41,5 +45,21 @@ namespace AVStack.IdentityServer.WebApi.Extensions
                 configuration.AddJsonFile($"{settingsFileName}.{environment ?? "Development"}.json", true, true);
             };
         }
+
+        public static bool IsEmail(this string email)
+        {
+            if (email.Trim().EndsWith(".")) {
+                return false; // suggested by @TK-421
+            }
+            try {
+                var address = new System.Net.Mail.MailAddress(email);
+                return address.Address == email;
+            }
+            catch {
+                return false;
+            }
+        }
+
+
     }
 }

@@ -1,12 +1,10 @@
 using System;
 using System.Reflection;
-using AVStack.IdentityServer.WebApi.Controllers.Validators;
 using AVStack.IdentityServer.WebApi.Data;
 using AVStack.IdentityServer.WebApi.Data.Entities;
 using AVStack.IdentityServer.WebApi.Models.Application;
 using AVStack.IdentityServer.WebApi.Models.Application.Interfaces;
 using AVStack.IdentityServer.WebApi.Services;
-using AVStack.IdentityServer.WebApi.Services.Interfaces;
 using AVStack.MessageBus.Abstraction;
 using AVStack.MessageBus.Extensions;
 using FluentValidation.AspNetCore;
@@ -14,7 +12,6 @@ using IdentityServer4.Configuration;
 using IdentityServer4.Services;
 using MediatR;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -51,7 +48,6 @@ namespace AVStack.IdentityServer.WebApi.Extensions
         private static void RegisterServices(this IServiceCollection services)
         {
             services.AddTransient<IReturnUrlParser, ReturnUrlParser>();
-            services.AddScoped<IAccountService, AccountService>();
         }
 
         private static void ConfigureNpgsql(this IServiceCollection services, IConfiguration configuration)
@@ -114,6 +110,7 @@ namespace AVStack.IdentityServer.WebApi.Extensions
                         RaiseSuccessEvents = false,
                         RaiseInformationEvents = false
                     };
+
                 })
                 .AddAspNetIdentity<UserEntity>()
                 .AddConfigurationStore(options =>
@@ -135,7 +132,7 @@ namespace AVStack.IdentityServer.WebApi.Extensions
                             option.UseQuerySplittingBehavior(QuerySplittingBehavior.SingleQuery);
                         });
 
-                    // this enables automatic token cleanup. this is optional.
+                    // This enables automatic token cleanup. This is optional.
                     // options.EnableTokenCleanup = true;
                     // options.TokenCleanupInterval = 30;
                 })
@@ -149,7 +146,7 @@ namespace AVStack.IdentityServer.WebApi.Extensions
                 options.AddPolicy("Default", policy =>
                 {
                     policy
-                        .WithOrigins("http://localhost:4200")
+                        .WithOrigins("http://localhost:4200", "http://localhost:4201", "https://localhost:5005")
                         .AllowAnyHeader()
                         .AllowAnyMethod()
                         .AllowCredentials();
@@ -160,7 +157,7 @@ namespace AVStack.IdentityServer.WebApi.Extensions
         {
             services.AddControllers(options =>
                 {
-                    options.Filters.Add(typeof(ValidateModelStateAttribute));
+                    //options.Filters.Add(typeof(ValidateModelStateAttribute));
                 })
                 .AddFluentValidation(fv =>
                 {
@@ -168,14 +165,14 @@ namespace AVStack.IdentityServer.WebApi.Extensions
                     fv.RegisterValidatorsFromAssembly(typeof(Startup).GetTypeInfo().Assembly);
                 });
 
-            services.Configure<ApiBehaviorOptions>(options =>
-            {
-                options.SuppressModelStateInvalidFilter = true;
-            });
+            // services.Configure<ApiBehaviorOptions>(options =>
+            // {
+            //     options.SuppressModelStateInvalidFilter = true;
+            // });
 
             services.AddSwaggerGen(c =>
             {
-                c.SwaggerDoc("v1.0.0",
+                c.SwaggerDoc("v1",
                     new OpenApiInfo
                     {
                         Version = "v1.0.0",

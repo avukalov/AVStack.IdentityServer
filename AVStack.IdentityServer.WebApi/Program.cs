@@ -38,7 +38,7 @@ namespace AVStack.IdentityServer.WebApi
                 .CreateDefaultBuilder(args)
                 .ConfigureAppConfiguration(Helpers.AddConfiguration())
                 .ConfigureWebHostDefaults(wb => wb.UseStartup<Startup>())
-                .UseSerilog()
+                //.UseSerilog()
                 .Build();
         }
     }

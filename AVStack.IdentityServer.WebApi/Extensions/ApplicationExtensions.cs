@@ -1,27 +1,28 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using AVStack.IdentityServer.WebApi.Data;
 using AVStack.IdentityServer.WebApi.Data.Entities;
 using AVStack.IdentityServer.WebApi.Models.Constants;
 using AVStack.IdentityServer.WebApi.Models.Enums;
 using IdentityServer4;
 using IdentityServer4.EntityFramework.DbContexts;
-using IdentityServer4.EntityFramework.Entities;
 using IdentityServer4.EntityFramework.Mappers;
 using IdentityServer4.Models;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 // Classes
 using Client = IdentityServer4.Models.Client;
 using ApiResource = IdentityServer4.Models.ApiResource;
+using ApiScope = IdentityServer4.Models.ApiScope;
 using Secret = IdentityServer4.Models.Secret;
 using ClientEntity = IdentityServer4.EntityFramework.Entities.Client;
 using ApiResourceEntity = IdentityServer4.EntityFramework.Entities.ApiResource;
+using ApiScopeEntity = IdentityServer4.EntityFramework.Entities.ApiScope;
 using IdentityResourceEntity = IdentityServer4.EntityFramework.Entities.IdentityResource;
 
 namespace AVStack.IdentityServer.WebApi.Extensions
@@ -31,13 +32,11 @@ namespace AVStack.IdentityServer.WebApi.Extensions
         public static void ConfigureApplication(this IApplicationBuilder app)
         {
             app.UseCors("Default");
-            app.UseHttpsRedirection();
-
-            app.UseStaticFiles();
+            //app.UseHttpsRedirection();
             app.UseRouting();
 
-            app.UseIdentityServer();
 
+            app.UseIdentityServer();
             //app.UseAuthentication();
             app.UseAuthorization();
 
@@ -85,12 +84,12 @@ namespace AVStack.IdentityServer.WebApi.Extensions
                     SeedRoles(serviceScope);
                     SeedUsers(serviceScope);
                     SeedApiResources(serviceScope);
+                    SeedApiScopes(serviceScope);
                     SeedIdentityResources(serviceScope);
                     SeedClients(serviceScope);
                 }
             }
         }
-
         private static void SeedApiResources(IServiceScope serviceScope)
         {
             var context = serviceScope.ServiceProvider.GetRequiredService<ConfigurationDbContext>();
@@ -106,12 +105,22 @@ namespace AVStack.IdentityServer.WebApi.Extensions
 
                     // Message Center
                     new ApiResource("avstack.message-center.api", "AVStack MessageCenter WebApi").ToEntity(),
+                    new ApiResource("avcloud.api", "AVCloud WebApi")
+                    {
+                        Scopes =
+                        {
+                            "avcloud.api.create",
+                            "avcloud.api.read",
+                            "avcloud.api.update",
+                            "avcloud.api.delete",
+                            "avcloud.api.full"
+                        }
+                    }.ToEntity(),
                 };
                 context.ApiResources.AddRange(apiResources);
                 context.SaveChanges();
             }
         }
-
         private static void SeedIdentityResources(IServiceScope serviceScope)
         {
             var context = serviceScope.ServiceProvider.GetRequiredService<ConfigurationDbContext>();
@@ -126,6 +135,45 @@ namespace AVStack.IdentityServer.WebApi.Extensions
                     new IdentityResources.Phone().ToEntity(),
                 };
                 context.IdentityResources.AddRange(identityResources);
+                context.SaveChanges();
+            }
+        }
+
+        private static void SeedApiScopes(IServiceScope serviceScope)
+        {
+            var context = serviceScope.ServiceProvider.GetRequiredService<ConfigurationDbContext>();
+            if (!context.ApiScopes.Any())
+            {
+                var apiScopes = new List<ApiScopeEntity>
+                {
+                    new ApiScope()
+                    {
+                        Name = "avcloud.api.create",
+                        DisplayName = "AVCloud Create Scope",
+                    }.ToEntity(),
+                    new ApiScope()
+                    {
+                        Name = "avcloud.api.read",
+                        DisplayName = "AVCloud Read Scope",
+                    }.ToEntity(),
+                    new ApiScope()
+                    {
+                        Name = "avcloud.api.update",
+                        DisplayName = "AVCloud Update Scope",
+                    }.ToEntity(),
+                    new ApiScope()
+                    {
+                        Name = "avcloud.api.delete",
+                        DisplayName = "AVCloud Delete Scope",
+                    }.ToEntity(),
+                    new ApiScope()
+                    {
+                        Name = "avcloud.api.full",
+                        DisplayName = "AVCloud Full Scope",
+                    }.ToEntity(),
+
+                };
+                context.ApiScopes.AddRange(apiScopes);
                 context.SaveChanges();
             }
         }
@@ -182,15 +230,20 @@ namespace AVStack.IdentityServer.WebApi.Extensions
                             IdentityServerConstants.StandardScopes.Address,
                             IdentityServerConstants.StandardScopes.Email,
                             IdentityServerConstants.StandardScopes.Phone,
+                            "avcloud.api.create",
+                            "avcloud.api.read",
+                            "avcloud.api.update",
+                            "avcloud.api.delete",
+                            "avcloud.api.full"
                         },
 
-                    }.ToEntity()
+                    }.ToEntity(),
+
                 };
                 context.Clients.AddRange(clients);
                 context.SaveChanges();
             }
         }
-
         private static void SeedUsers(IServiceScope serviceScope)
         {
             var userManager = serviceScope.ServiceProvider.GetRequiredService<UserManager<UserEntity>>();

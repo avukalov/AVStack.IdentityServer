@@ -1,8 +1,9 @@
+using AVStack.IdentityServer.WebApi.Models.Requests;
 using FluentValidation;
 
 namespace AVStack.IdentityServer.WebApi.Controllers.Validators
 {
-    public class ResetPasswordModelValidator : AbstractValidator<ResetPasswordModel>
+    public class ResetPasswordModelValidator : AbstractValidator<ResetPasswordRequest>
     {
         public ResetPasswordModelValidator()
         {

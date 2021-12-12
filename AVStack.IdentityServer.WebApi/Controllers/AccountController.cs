@@ -1,19 +1,18 @@
 using System;
-using System.Linq;
 using System.Threading.Tasks;
-using AutoMapper;
-using AVStack.IdentityServer.WebApi.Controllers.Validators;
-using AVStack.IdentityServer.WebApi.Models.Application;
-using AVStack.IdentityServer.WebApi.Services.Interfaces;
+using AVStack.IdentityServer.WebApi.Data.Entities;
+using AVStack.IdentityServer.WebApi.Models.Requests;
 using IdentityServer4.Services;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Primitives;
 
 
 namespace AVStack.IdentityServer.WebApi.Controllers
 {
     [AllowAnonymous]
-    [ValidateModelState]
     [ApiController]
     [Route("account")]
     public class AccountController : ControllerBase
@@ -21,8 +20,8 @@ namespace AVStack.IdentityServer.WebApi.Controllers
         #region Fields
 
         private readonly IIdentityServerInteractionService _interactionService;
-        private readonly IAccountService _accountService;
-        private readonly IMapper _mapper;
+        private readonly SignInManager<UserEntity> _signInManager;
+        private readonly IMediator _mediator;
 
         #endregion
 
@@ -30,12 +29,13 @@ namespace AVStack.IdentityServer.WebApi.Controllers
 
         public AccountController(
             IIdentityServerInteractionService interactionService,
-            IAccountService accountService,
-            IMapper mapper)
+            SignInManager<UserEntity> signInManager,
+            IMediator mediator
+        )
         {
             _interactionService = interactionService;
-            _accountService = accountService;
-            _mapper = mapper;
+            _signInManager = signInManager;
+            _mediator = mediator;
         }
 
         #endregion
@@ -43,65 +43,46 @@ namespace AVStack.IdentityServer.WebApi.Controllers
         #region Methods
 
         [HttpPost("email-confirmation")]
-        public async Task<IActionResult> EmailConfirmationAsync([FromBody] EmailConfirmationModel model)
+        public async Task<IActionResult> EmailConfirmationAsync([FromBody] EmailConfirmationRequest request)
         {
-            var result = await _accountService.ConfirmEmailAsync(model.UserId, model.Token);
-
-            if (!result.Succeeded)
-            {
-                return BadRequest(new { errors = result.Errors.Select(e => e.Description).ToList()});
-            }
-
-            return Ok();
+            var result = await _mediator.Send(request);
+            Response.StatusCode = (int)result.Status;
+            return new JsonResult(result);
         }
 
         [HttpPost("forgot-password")]
-        public async Task<IActionResult> ForgotPasswordAsync([FromBody] ForgotPasswordModel model)
+        public async Task<IActionResult> ForgotPasswordAsync([FromBody] ForgotPasswordRequest request)
         {
-            var result = await _accountService.ForgotPasswordAsync(model.Email);
-
-            if (!result.Succeeded)
-            {
-                return BadRequest(new { errors = result.Errors.Select(e => e.Description).ToList() });
-            }
-
-            return Ok();
+            var result = await _mediator.Send(request);
+            Response.StatusCode = (int)result.Status;
+            return new JsonResult(result);
         }
 
         [HttpPost("reset-password")]
-        public async Task<IActionResult> ResetPasswordAsync([FromBody] ResetPasswordModel model)
+        public async Task<IActionResult> ResetPasswordAsync([FromBody] ResetPasswordRequest request)
         {
-            var result = await _accountService.ResetPasswordAsync(model.UserId, model.Password, model.Token);
-
-            if (!result.Succeeded)
-            {
-                return BadRequest(new { errors = result.Errors.Select(e => e.Description).ToList() });
-            }
-
-            return Ok();
+            var result = await _mediator.Send(request);
+            Response.StatusCode = (int)result.Status;
+            return new JsonResult(result);
         }
 
         [HttpPost("sign-in")]
-        public async Task<IActionResult> SignInAsync([FromBody] SignInModel model)
+        public async Task<IActionResult> SignInAsync([FromBody] SignInRequest request)
         {
             // Since we are receiving request from spa, we do not need to handle cancel yet
 
-            var context = await _interactionService.GetAuthorizationContextAsync(model.ReturnUrl);
+            var context = await _interactionService.GetAuthorizationContextAsync(request.ReturnUrl);
 
             if (context == null) return Unauthorized();
 
-            var result = await _accountService.LoginUserAsync(model.UserName, model.Password, model.RememberMe);
+            var result = await _mediator.Send(request);
 
-            if (!result.Succeeded)
-            {
-                return BadRequest(new { errors = result.Errors.Select(e => e.Description).ToList() });
-            }
-
-            return Ok(new { redirectUrl = model.ReturnUrl });
+            Response.StatusCode = (int) result.Status;
+            return !result.Succeeded ? new JsonResult(result) : new JsonResult(new { redirectUrl = request.ReturnUrl });
         }
 
         [HttpPost("sign-out")]
-        public async Task<IActionResult> SignOutAsync([FromBody] SignOutModel model)
+        public async Task<IActionResult> SignOutAsync([FromBody] SignOutRequest model)
         {
             var context = await _interactionService.GetLogoutContextAsync(model.LogoutId);
 
@@ -109,104 +90,32 @@ namespace AVStack.IdentityServer.WebApi.Controllers
 
             if (User?.Identity?.IsAuthenticated == true)
             {
-                await _accountService.LogoutUserAsync();
+                await _signInManager.SignOutAsync();
             }
 
             // TODO: Add support for external signout
 
-            return Ok();
-            // new Handle this response from service
-            // {
-            //     ClientName = string.IsNullOrEmpty(context?.ClientName) ? context?.ClientId : context?.ClientName,
-            //     context?.PostLogoutRedirectUri,
-            //     context?.SignOutIFrameUrl,
-            //     showSignoutPrompt,
-            //     model.LogoutId
-            // }
+            // Handle this response from service
+            return Ok(new
+            {
+                ClientName = string.IsNullOrEmpty(context?.ClientName) ? context?.ClientId : context?.ClientName,
+                context?.PostLogoutRedirectUri,
+                context?.SignOutIFrameUrl,
+                showSignoutPrompt,
+                model.LogoutId
+            });
+
         }
 
         [HttpPost("sign-up")]
-        public async Task<IActionResult> SignUpAsync([FromBody] SignUpModel model)
+        public async Task<IActionResult> SignUpAsync([FromBody] SignUpRequest request)
         {
-            var result = await _accountService.RegisterUserAsync(_mapper.Map<User>(model));
+            var result = await _mediator.Send(request);
 
-            if (!result.Succeeded)
-            {
-                return BadRequest(new { errors = result.Errors.Select(e => e.Description).ToList() });
-            }
-
-            return Ok();
+            Response.StatusCode = (int)result.Status;
+            return new JsonResult(result);
         }
 
         #endregion
     }
-
-    #region MappingConfigurationSection
-
-    public class AccountMappingConfigurationSection : Profile
-    {
-        public AccountMappingConfigurationSection()
-        {
-            CreateMap<SignUpModel, User>()
-                .ForMember(
-                    destinationMember => destinationMember.UserName,
-                    memberOptions =>
-                        memberOptions.MapFrom(model => EmptyUserNameResolver(model)));
-        }
-
-        private string EmptyUserNameResolver(SignUpModel user)
-            => !string.IsNullOrEmpty(user.UserName) ? user.UserName : user.Email.Split('@')[0];
-    }
-
-    #endregion
-
-    #region Classes
-
-    public class EmailConfirmationModel
-    {
-        public Guid UserId { get; set; }
-        public string Token { get; set; }
-    }
-
-    public class ForgotPasswordModel
-    {
-        public string Email { get; set; }
-    }
-
-    public class ResetPasswordModel
-    {
-        public Guid UserId { get; set; }
-        public string Token { get; set; }
-        public string Password { get; set; }
-        public string ConfirmPassword { get; set; }
-    }
-
-    public class SignUpModel
-    {
-        public string FirstName { get; set; }
-        public string LastName { get; set; }
-        public string UserName { get; set; }
-        public string Email { get; set; }
-        public string Password { get; set; }
-        public string ConfirmPassword { get; set; }
-        public string ClientUri { get; set; }
-    }
-
-    public class SignInModel
-    {
-        public string Email { get; set; }
-        public string UserName { get; set; }
-        public string Password { get; set; }
-        public string ReturnUrl { get; set; }
-        public bool RememberMe { get; set; } = false;
-
-    }
-
-    public class SignOutModel
-    {
-        public string LogoutId { get; set; }
-    }
-
-    #endregion
-
 }

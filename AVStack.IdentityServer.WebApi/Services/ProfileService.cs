@@ -54,6 +54,7 @@ namespace AVStack.IdentityServer.WebApi.Services
                 new Claim(IdentityClaimDefaults.HasuraDefaultRole,IdentityRoleDefaults.User),
                 new Claim(IdentityClaimDefaults.HasuraAllowedRoles, JsonSerializer.Serialize(systemRoles.Select(r => r.Name).ToArray())),
             };
+
             return Task.FromResult(claims);
         }
 

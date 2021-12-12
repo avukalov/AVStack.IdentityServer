@@ -1,8 +1,9 @@
+using AVStack.IdentityServer.WebApi.Models.Requests;
 using FluentValidation;
 
 namespace AVStack.IdentityServer.WebApi.Controllers.Validators
 {
-    public class EmailConfirmationModelValidator : AbstractValidator<EmailConfirmationModel>
+    public class EmailConfirmationModelValidator : AbstractValidator<EmailConfirmationRequest>
     {
         public EmailConfirmationModelValidator()
         {

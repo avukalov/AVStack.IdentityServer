@@ -1,8 +1,9 @@
+using AVStack.IdentityServer.WebApi.Models.Requests;
 using FluentValidation;
 
 namespace AVStack.IdentityServer.WebApi.Controllers.Validators
 {
-    public class ForgotPasswordModelValidator : AbstractValidator<ForgotPasswordModel>
+    public class ForgotPasswordModelValidator : AbstractValidator<ForgotPasswordRequest>
     {
         public ForgotPasswordModelValidator()
         {
