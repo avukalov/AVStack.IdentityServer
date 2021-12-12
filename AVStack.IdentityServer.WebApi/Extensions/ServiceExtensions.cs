@@ -1,12 +1,16 @@
 using System;
 using System.Reflection;
-using AVStack.IdentityServer.Configuration;
 using AVStack.IdentityServer.WebApi.Data;
 using AVStack.IdentityServer.WebApi.Data.Entities;
-using AVStack.IdentityServer.WebApi.Models;
+using AVStack.IdentityServer.WebApi.Models.Application;
+using AVStack.IdentityServer.WebApi.Models.Application.Interfaces;
 using AVStack.IdentityServer.WebApi.Services;
 using AVStack.MessageBus.Abstraction;
 using AVStack.MessageBus.Extensions;
+using FluentValidation.AspNetCore;
+using IdentityServer4.Configuration;
+using IdentityServer4.Services;
+using MediatR;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -18,23 +22,53 @@ namespace AVStack.IdentityServer.WebApi.Extensions
 {
     public static class ServiceExtensions
     {
-        public static void ConfigureNpgsql(this IServiceCollection services, IConfiguration configuration)
+        public static void ConfigureServices(this IServiceCollection services, IConfiguration configuration)
         {
-            services.AddDbContext<ApplicationDbContext>(options =>
+            services.ConfigureWebApi();
+
+            services.ConfigureNpgsql(configuration);
+
+            services.ConfigureCors();
+            services.ConfigureIdentity(configuration);
+            services.ConfigureIdentityServer(configuration);
+
+
+            services.ConfigureMessageBus(configuration);
+            services.AddAutoMapper(typeof(Startup));
+            services.AddMediatR(typeof(Startup));
+
+            services.RegisterModels();
+            services.RegisterServices();
+        }
+
+        private static void RegisterModels(this IServiceCollection services)
+        {
+            services.AddScoped<IUser, User>();
+        }
+        private static void RegisterServices(this IServiceCollection services)
+        {
+            services.AddTransient<IReturnUrlParser, ReturnUrlParser>();
+        }
+
+        private static void ConfigureNpgsql(this IServiceCollection services, IConfiguration configuration)
+        {
+            services.AddDbContext<AccountDbContext>(options =>
                 options
                     .UseNpgsql(
-                        configuration.GetSection("ConnectionStrings")["IdentityServerDb"],
+                        configuration.GetSection("ConnectionStrings")["AVAccount"],
                         option =>
                         {
-                            option.MigrationsAssembly(typeof(ApplicationDbContext).GetTypeInfo().Assembly.GetName().Name);
+                            option.UseAdminDatabase("postgres");
+                            option.MigrationsAssembly(typeof(AccountDbContext).GetTypeInfo().Assembly.GetName().Name);
                             option.UseQuerySplittingBehavior(QuerySplittingBehavior.SingleQuery);
                         }));
                     //.ConfigureWarnings(warnings => warnings.Default(WarningBehavior.Ignore)));
+
         }
-        public static void ConfigureIdentity(this IServiceCollection services)
+        private static void ConfigureIdentity(this IServiceCollection services, IConfiguration configuration)
         {
-            services
-                .AddIdentity<UserEntity, RoleEntity>(option =>
+            // TODO: !!!IMPORTANT!!!  Bind options from appsettings.json to objects and serve them as singletons
+            services.AddIdentity<UserEntity, RoleEntity>(option =>
                 {
                     option.User.RequireUniqueEmail = true;
                     option.Password = new PasswordOptions
@@ -52,80 +86,130 @@ namespace AVStack.IdentityServer.WebApi.Extensions
                         DefaultLockoutTimeSpan = TimeSpan.FromDays(365),
                     };
                 })
-                .AddEntityFrameworkStores<ApplicationDbContext>()
+                .AddEntityFrameworkStores<AccountDbContext>()
                 .AddDefaultTokenProviders();
         }
-        public static void ConfigureIdentityServer(this IServiceCollection services, Action<IdentityServerStore> optionsAction)
+        private static void ConfigureIdentityServer(this IServiceCollection services, IConfiguration configuration)
         {
-            var identityServerStore = new IdentityServerStore();
-            optionsAction.Invoke(identityServerStore);
-            
             services
                 .AddIdentityServer(options =>
                 {
-                    options.Events.RaiseSuccessEvents = true;
-                    options.Events.RaiseInformationEvents = true;
-                    options.Events.RaiseErrorEvents = true;
-                    options.Events.RaiseFailureEvents = true;
+                    options.UserInteraction = new UserInteractionOptions
+                    {
+                        LoginUrl = configuration.GetSection("IdentityServerOptions")["UserInteraction:LoginUrl"],
+                        LogoutUrl = configuration.GetSection("IdentityServerOptions")["UserInteraction:LogoutUrl"],
+                        ConsentUrl = configuration.GetSection("IdentityServerOptions")["UserInteraction:ConsentUrl"],
+                        ErrorUrl = configuration.GetSection("IdentityServerOptions")["UserInteraction:ErrorUrl"],
+                        // DeviceVerificationUrl = configuration.GetSection("IdentityServerOptions")["UserInteraction:DeviceVerificationUrl"],
+                    };
+
+                    options.Events = new EventsOptions
+                    {
+                        RaiseErrorEvents = true,
+                        RaiseFailureEvents = true,
+                        RaiseSuccessEvents = false,
+                        RaiseInformationEvents = false
+                    };
+
                 })
                 .AddAspNetIdentity<UserEntity>()
-                .AddInMemoryClients(identityServerStore.Clients)
-                .AddInMemoryIdentityResources(identityServerStore.IdentityResources)
-                // .AddInMemoryApiResources(identityServerStore.ApiResources)
-                // .AddInMemoryApiScopes(identityServerStore.ApiScopes)
+                .AddConfigurationStore(options =>
+                {
+                    options.ConfigureDbContext = builder =>
+                        builder.UseNpgsql(configuration.GetSection("ConnectionStrings")["AVIdentityServer"], option =>
+                        {
+                            option.MigrationsAssembly(typeof(AccountDbContext).GetTypeInfo().Assembly.GetName().Name);
+                            option.UseQuerySplittingBehavior(QuerySplittingBehavior.SingleQuery);
+                        });
+                })
+                // this adds the operational data from DB (codes, tokens, consents)
+                .AddOperationalStore(options =>
+                {
+                    options.ConfigureDbContext = builder =>
+                        builder.UseNpgsql(configuration.GetSection("ConnectionStrings")["AVIdentityServer"],  option =>
+                        {
+                            option.MigrationsAssembly(typeof(AccountDbContext).GetTypeInfo().Assembly.GetName().Name);
+                            option.UseQuerySplittingBehavior(QuerySplittingBehavior.SingleQuery);
+                        });
+
+                    // This enables automatic token cleanup. This is optional.
+                    // options.EnableTokenCleanup = true;
+                    // options.TokenCleanupInterval = 30;
+                })
                 .AddProfileService<ProfileService>()
                 .AddDeveloperSigningCredential();
-            
-            // services.Configure<IdentityServerStore>(
-            //     configuration.GetSection(IdentityServerStore.IdentityServerStoreSection));
         }
-        public static void ConfigureCors(this IServiceCollection services)
+        private static void ConfigureCors(this IServiceCollection services)
         {
             services.AddCors(options =>
             {
-                options.AddPolicy("CorsPolicy", policy =>
+                options.AddPolicy("Default", policy =>
                 {
                     policy
-                        .AllowAnyOrigin()
+                        .WithOrigins("http://localhost:4200", "http://localhost:4201", "https://localhost:5005")
                         .AllowAnyHeader()
-                        .AllowAnyMethod();
+                        .AllowAnyMethod()
+                        .AllowCredentials();
                 });
             });
         }
-        public static void ConfigureWebApi(this IServiceCollection services)
+        private static void ConfigureWebApi(this IServiceCollection services)
         {
-            services.AddControllers();
+            services.AddControllers(options =>
+                {
+                    //options.Filters.Add(typeof(ValidateModelStateAttribute));
+                })
+                .AddFluentValidation(fv =>
+                {
+                    fv.DisableDataAnnotationsValidation = true;
+                    fv.RegisterValidatorsFromAssembly(typeof(Startup).GetTypeInfo().Assembly);
+                });
+
+            // services.Configure<ApiBehaviorOptions>(options =>
+            // {
+            //     options.SuppressModelStateInvalidFilter = true;
+            // });
+
             services.AddSwaggerGen(c =>
             {
-                c.SwaggerDoc(
-                    "v1", 
+                c.SwaggerDoc("v1",
                     new OpenApiInfo
                     {
-                        Title = "AVStack.IdentityServer.WebApi", 
-                        Version = "v1"
+                        Version = "v1.0.0",
+                        Title = "AVStack.IdentityServer",
+                        Description = "Simple IdentityServer built around IdentityServer4 and ASPNETIdentity",
+                        Contact = new OpenApiContact()
+                        {
+                            Name = "Antonio Vukalović",
+                            Email = "vukalovicantonio@gmail.com",
+                        }
                     });
             });
         }
-        public static void ConfigureMessageBus(this IServiceCollection services, IConfiguration configuration)
+        private static void ConfigureMessageBus(this IServiceCollection services, IConfiguration configuration)
         {
             services.AddMessageBus(options =>
             {
                 options.Uri = new Uri(configuration.GetSection("RabbitMQ")["Uri"]);
-            }, busFactory =>
-            {
-                busFactory.ConfigureTopology();
-            });
+            }, busFactory => busFactory.ConfigureTopology());
         }
-
         private static void ConfigureTopology(this IMessageBusFactory busFactory)
         {
-            busFactory.DeclareExchange("confirmation.notification.newsletter", ExchangeType.Topic);
-            busFactory.DeclareQueue("confirmation");
-            busFactory.DeclareQueue("notification");
-            busFactory.DeclareQueue("newsletter");
-            busFactory.BindQueue("confirmation", "confirmation.notification.newsletter", "confirmation.*.*");
-            busFactory.BindQueue("notification", "confirmation.notification.newsletter", "*.notification.*");
-            busFactory.BindQueue("newsletter", "confirmation.notification.newsletter", "*.*.newsletter");
+            // Infrastructure
+            busFactory.DeclareExchange("monitoring", ExchangeType.Topic);
+
+            busFactory.DeclareExchange("identity-server", ExchangeType.Topic);
+            busFactory.DeclareExchange("account", ExchangeType.Topic);
+
+            busFactory.DeclareQueue("message-center");
+
+
+            // Bindings
+            busFactory.BindExchange("identity-server", "monitoring", "identity-server.#");
+            busFactory.BindExchange("account", "monitoring", "account.#");
+
+            busFactory.BindQueue("message-center", "identity-server", "#");
+            busFactory.BindQueue("message-center", "account", "#");
         }
     }
 }

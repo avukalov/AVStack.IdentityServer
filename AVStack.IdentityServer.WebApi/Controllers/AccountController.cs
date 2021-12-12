@@ -1,179 +1,121 @@
-using System.ComponentModel;
-using System.ComponentModel.DataAnnotations;
-using System.Text.Json;
+using System;
 using System.Threading.Tasks;
-using AVStack.IdentityServer.Constants;
 using AVStack.IdentityServer.WebApi.Data.Entities;
-using AVStack.MessageBus.Abstraction;
+using AVStack.IdentityServer.WebApi.Models.Requests;
 using IdentityServer4.Services;
+using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Primitives;
 
 
 namespace AVStack.IdentityServer.WebApi.Controllers
 {
+    [AllowAnonymous]
     [ApiController]
-    [Route("[controller]")]
+    [Route("account")]
     public class AccountController : ControllerBase
     {
-        private readonly SignInManager<UserEntity> _signInManager;
-        private readonly UserManager<UserEntity> _userManager;
+        #region Fields
+
         private readonly IIdentityServerInteractionService _interactionService;
-        private readonly IMessageBusFactory _busFactory;
-        
+        private readonly SignInManager<UserEntity> _signInManager;
+        private readonly IMediator _mediator;
+
+        #endregion
+
+        #region Constructors
+
         public AccountController(
-            SignInManager<UserEntity> signInManager, 
-            UserManager<UserEntity> userManager, 
-            IIdentityServerInteractionService interactionService, 
-            IMessageBusFactory busFactory)
+            IIdentityServerInteractionService interactionService,
+            SignInManager<UserEntity> signInManager,
+            IMediator mediator
+        )
         {
-            _signInManager = signInManager;
-            _userManager = userManager;
             _interactionService = interactionService;
-            _busFactory = busFactory;
+            _signInManager = signInManager;
+            _mediator = mediator;
         }
 
-        [HttpPost]
-        [Route("SignUp")]
-        public async Task<IActionResult> SignUpAsync(SignUpRequestModel newUser)
+        #endregion
+
+        #region Methods
+
+        [HttpPost("email-confirmation")]
+        public async Task<IActionResult> EmailConfirmationAsync([FromBody] EmailConfirmationRequest request)
         {
-            if (!ModelState.IsValid) return BadRequest(ModelState);
-
-            var userEntity = new UserEntity
-            {
-                FirstName = newUser.FirstName,
-                LastName = newUser.LastName,
-                Email = newUser.Email,
-                UserName = !string.IsNullOrEmpty(newUser.UserName) ? newUser.UserName : newUser.Email.Split('@')[0]
-            };
-
-            var result = await _userManager.CreateAsync(userEntity, newUser.Password);
-
-            if (!result.Succeeded)
-            {
-                foreach (var error in result.Errors)
-                {
-                    ModelState.TryAddModelError(error.Code, error.Description);
-                }
-                return BadRequest(ModelState);
-            }
-            
-            await _userManager.AddToRoleAsync(userEntity, IdentityRoleDefaults.User);
-
-            using (var producer = _busFactory.CreateProducer())
-            {
-                var message = JsonSerializer.Serialize(new
-                {
-                    FirstName = userEntity.FirstName,
-                    LastName = userEntity.LastName,
-                    Email = userEntity.Email,
-                    UserName = userEntity.UserName,
-                    EmailConfirmationLink = GenerateConfirmationLink(userEntity)
-                });
-                producer.Publish("confirmation.notification.newsletter", "confirmation.*.*", null, message);
-            }
-            
-            return Ok();
+            var result = await _mediator.Send(request);
+            Response.StatusCode = (int)result.Status;
+            return new JsonResult(result);
         }
-        
-        [HttpPost]
-        [Route("SignIn")]
-        public async Task<IActionResult> SignInAsync([FromBody] SignInRequestModel signInModel)
+
+        [HttpPost("forgot-password")]
+        public async Task<IActionResult> ForgotPasswordAsync([FromBody] ForgotPasswordRequest request)
         {
-            var context = await _interactionService.GetAuthorizationContextAsync(signInModel.ReturnUrl);
-            if (!ModelState.IsValid) return BadRequest("Invalid credentials.");
-
-            var user = await _userManager.FindByNameAsync(signInModel.UserName);
-            if (!user.EmailConfirmed)
-            {
-                return BadRequest("Confirm your email first.");
-            }
-            
-            var result = await _signInManager.PasswordSignInAsync(user, signInModel.Password, signInModel.RememberMe, user.LockoutEnabled);
-            if (!result.Succeeded)
-            {
-                ModelState.AddModelError(string.Empty, "Invalid credentials.");
-                return BadRequest(ModelState);
-            }
-            
-            return Ok();
+            var result = await _mediator.Send(request);
+            Response.StatusCode = (int)result.Status;
+            return new JsonResult(result);
         }
-        
-        [HttpGet("EmailConfirmation", Name = "EmailConfirmation")]
-        public async Task<IActionResult> EmailConfirmation(string userId, string token)
+
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPasswordAsync([FromBody] ResetPasswordRequest request)
         {
-            var user = await _userManager.FindByIdAsync(userId);
-            if (user.EmailConfirmed)
-            {
-                return BadRequest("You email is already confirmed.");
-            }
-            
-            var result = await _userManager.ConfirmEmailAsync(user, token);
-            if (!result.Succeeded)
-            {
-                return BadRequest();
-            }
-
-            return Ok();
+            var result = await _mediator.Send(request);
+            Response.StatusCode = (int)result.Status;
+            return new JsonResult(result);
         }
-        
-        [HttpPost]
-        [Route("SignOut")]
-        public async Task<IActionResult> SignOutAsync()
+
+        [HttpPost("sign-in")]
+        public async Task<IActionResult> SignInAsync([FromBody] SignInRequest request)
         {
-            if (User?.Identity?.IsAuthenticated == true) await _signInManager.SignOutAsync();
-            return Ok();
+            // Since we are receiving request from spa, we do not need to handle cancel yet
+
+            var context = await _interactionService.GetAuthorizationContextAsync(request.ReturnUrl);
+
+            if (context == null) return Unauthorized();
+
+            var result = await _mediator.Send(request);
+
+            Response.StatusCode = (int) result.Status;
+            return !result.Succeeded ? new JsonResult(result) : new JsonResult(new { redirectUrl = request.ReturnUrl });
         }
 
-        private string GenerateConfirmationLink(UserEntity userEntity)
+        [HttpPost("sign-out")]
+        public async Task<IActionResult> SignOutAsync([FromBody] SignOutRequest model)
         {
-            var confirmationToken = _userManager.GenerateEmailConfirmationTokenAsync(userEntity).Result;
-            var confirmationLink = Url.Action(
-                nameof(EmailConfirmation),
-                "Account",
-                new
-                {
-                    userId = userEntity.Id,
-                    token = confirmationToken
-                },
-                protocol: HttpContext.Request.Scheme);
-            return confirmationLink;
+            var context = await _interactionService.GetLogoutContextAsync(model.LogoutId);
+
+            var showSignoutPrompt = context?.ShowSignoutPrompt != false;
+
+            if (User?.Identity?.IsAuthenticated == true)
+            {
+                await _signInManager.SignOutAsync();
+            }
+
+            // TODO: Add support for external signout
+
+            // Handle this response from service
+            return Ok(new
+            {
+                ClientName = string.IsNullOrEmpty(context?.ClientName) ? context?.ClientId : context?.ClientName,
+                context?.PostLogoutRedirectUri,
+                context?.SignOutIFrameUrl,
+                showSignoutPrompt,
+                model.LogoutId
+            });
+
         }
-    }
-    
-    public class SignUpRequestModel
-    {
-        [Required(ErrorMessage = "First name is required.")]
-        public string FirstName { get; set; }
-        
-        [Required(ErrorMessage = "Last name is required.")]
-        public string LastName { get; set; }
-        public string UserName { get; set; }
-        
-        [Required(ErrorMessage = "Email is required.")]
-        public string Email { get; set; }
-        
-        [Required(ErrorMessage = "Password is required")]
-        [DataType(DataType.Password)]
-        public string Password { get; set; }
-        
-        [DataType(DataType.Password)]
-        [Compare("Password", ErrorMessage = "The password and confirmation password do not match.")]
-        public string ConfirmPassword { get; set; }
-    }
-    
-    public class SignInRequestModel
-    {
-        [Required(ErrorMessage = "Username is required.")]
-        public string UserName { get; set; }
 
-        [Required(ErrorMessage = "Password is required.")]
-        [PasswordPropertyText]
-        public string Password { get; set; }
+        [HttpPost("sign-up")]
+        public async Task<IActionResult> SignUpAsync([FromBody] SignUpRequest request)
+        {
+            var result = await _mediator.Send(request);
 
-        [Required(ErrorMessage = "ReturnUrl is required.")]
-        public string ReturnUrl { get; set; }
-        public bool RememberMe { get; set; }
-        
+            Response.StatusCode = (int)result.Status;
+            return new JsonResult(result);
+        }
+
+        #endregion
     }
 }

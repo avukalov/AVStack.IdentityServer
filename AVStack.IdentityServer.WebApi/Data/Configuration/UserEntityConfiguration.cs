@@ -8,7 +8,7 @@ namespace AVStack.IdentityServer.WebApi.Data.Configuration
     {
         public void Configure(EntityTypeBuilder<UserEntity> builder)
         {
-            builder.ToTable("User");
+            builder.ToTable("AVUser");
             
             builder.Property(u => u.FirstName).HasMaxLength(100).IsRequired();
             builder.Property(u => u.LastName).HasMaxLength(100).IsRequired();
