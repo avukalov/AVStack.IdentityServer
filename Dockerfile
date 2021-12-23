@@ -7,11 +7,15 @@ FROM mcr.microsoft.com/dotnet/sdk:5.0 AS build
 WORKDIR /src
 
 COPY ./LocalNugets /tmp/LocalNugets
+
 COPY ./*.sln ./
 COPY ./*/*.csproj ./
 RUN for file in $(ls *.csproj); do mkdir -p ${file%.*}/ && mv $file ${file%.*}/; done
-RUN dotnet restore "AVStack.IdentityServer.sln" --packages /tmp/LocalNugets
+
+RUN dotnet restore "AVStack.IdentityServer.sln" -s https://api.nuget.org/v3/index.json -s /tmp/LocalNugets
+
 COPY . .
+
 WORKDIR "/src"
 RUN dotnet build "AVStack.IdentityServer.sln" -c Release -o /app/build
 
