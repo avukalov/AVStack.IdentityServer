@@ -95,6 +95,11 @@ namespace AVStack.IdentityServer.WebApi.Extensions
             services
                 .AddIdentityServer(options =>
                 {
+                    options.Cors = new CorsOptions
+                    {
+                        CorsPaths = { "http://localhost:4200", "http://localhost:4201" }
+                    };
+
                     options.UserInteraction = new UserInteractionOptions
                     {
                         LoginUrl = configuration.GetSection("IdentityServerOptions")["UserInteraction:LoginUrl"],
