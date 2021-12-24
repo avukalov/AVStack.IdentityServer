@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Models;
 using RabbitMQ.Client;
 
@@ -47,6 +48,13 @@ namespace AVStack.IdentityServer.WebApi.Extensions
         }
         private static void RegisterServices(this IServiceCollection services)
         {
+            services.AddSingleton<ICorsPolicyService>((container) => {
+                var logger = container.GetRequiredService<ILogger<DefaultCorsPolicyService>>();
+                return new DefaultCorsPolicyService(logger) {
+                    AllowAll = true,
+                    //AllowedOrigins = { "https://foo", "https://bar" }
+                };
+            });
             services.AddTransient<IReturnUrlParser, ReturnUrlParser>();
         }
 
