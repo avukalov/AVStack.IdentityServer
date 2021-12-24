@@ -48,13 +48,6 @@ namespace AVStack.IdentityServer.WebApi.Extensions
         }
         private static void RegisterServices(this IServiceCollection services)
         {
-            services.AddSingleton<ICorsPolicyService>((container) => {
-                var logger = container.GetRequiredService<ILogger<DefaultCorsPolicyService>>();
-                return new DefaultCorsPolicyService(logger) {
-                    AllowAll = true,
-                    //AllowedOrigins = { "https://foo", "https://bar" }
-                };
-            });
             services.AddTransient<IReturnUrlParser, ReturnUrlParser>();
         }
 
@@ -154,12 +147,19 @@ namespace AVStack.IdentityServer.WebApi.Extensions
                 options.AddPolicy("Default", policy =>
                 {
                     policy
-                        //.WithOrigins("http://localhost:4200", "http://localhost:4201", "https://localhost:5005")
-                        .SetIsOriginAllowed(_ => true) // It's required to use 'any origin' together with 'allow credentials'
+                        .WithOrigins("http://localhost:4200", "http://localhost:4201")
+                        //.SetIsOriginAllowed(_ => true) // It's required to use 'any origin' together with 'allow credentials'
                         .AllowAnyHeader()
                         .AllowAnyMethod()
                         .AllowCredentials();
                 });
+            });
+
+            services.AddSingleton<ICorsPolicyService>((container) => {
+                var logger = container.GetRequiredService<ILogger<DefaultCorsPolicyService>>();
+                return new DefaultCorsPolicyService(logger) {
+                    AllowedOrigins = { "http://localhost:4200", "http://localhost:4201" }
+                };
             });
         }
         private static void ConfigureWebApi(this IServiceCollection services)
