@@ -146,7 +146,8 @@ namespace AVStack.IdentityServer.WebApi.Extensions
                 options.AddPolicy("Default", policy =>
                 {
                     policy
-                        .WithOrigins("http://localhost:4200", "http://localhost:4201", "https://localhost:5005")
+                        //.WithOrigins("http://localhost:4200", "http://localhost:4201", "https://localhost:5005")
+                        .AllowAnyOrigin()
                         .AllowAnyHeader()
                         .AllowAnyMethod()
                         .AllowCredentials();
