@@ -27,14 +27,14 @@ namespace AVStack.IdentityServer.WebApi.Extensions
         {
             services.ConfigureWebApi();
 
-            services.ConfigureNpgsql(configuration);
-
             services.ConfigureCors();
+
+            services.ConfigureNpgsql(configuration);
+            services.ConfigureMessageBus(configuration);
+
             services.ConfigureIdentity(configuration);
             services.ConfigureIdentityServer(configuration);
 
-
-            services.ConfigureMessageBus(configuration);
             services.AddAutoMapper(typeof(Startup));
             services.AddMediatR(typeof(Startup));
 
@@ -59,7 +59,7 @@ namespace AVStack.IdentityServer.WebApi.Extensions
                         configuration.GetSection("ConnectionStrings")["AVAccount"],
                         option =>
                         {
-                            option.UseAdminDatabase("postgres");
+                            //option.UseAdminDatabase("postgres");
                             option.MigrationsAssembly(typeof(AccountDbContext).GetTypeInfo().Assembly.GetName().Name);
                             option.UseQuerySplittingBehavior(QuerySplittingBehavior.SingleQuery);
                         }));

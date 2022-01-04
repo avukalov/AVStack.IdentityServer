@@ -13,19 +13,13 @@ namespace AVStack.IdentityServer.WebApi.Data
         {
         }
 
+        public DbSet<UserTempToken> UserTempTokens { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
-            modelBuilder.ApplyConfiguration(new UserEntityConfiguration());
-
-            modelBuilder.Entity<IdentityUserClaim<Guid>>().ToTable("AVUserClaim");
-            modelBuilder.Entity<IdentityUserRole<Guid>>().ToTable("AVUserRole");
-            modelBuilder.Entity<IdentityUserLogin<Guid>>().ToTable("AVUserLogin");
-            modelBuilder.Entity<IdentityUserToken<Guid>>().ToTable("AVUserToken");
-
-            modelBuilder.Entity<RoleEntity>().ToTable("AVRole");
-            modelBuilder.Entity<IdentityRoleClaim<Guid>>().ToTable("AVRoleClaim");
+            modelBuilder.ConfigureEntities();
         }
     }
 }
