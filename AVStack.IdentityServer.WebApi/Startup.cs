@@ -3,6 +3,7 @@ using System.IdentityModel.Tokens.Jwt;
 using AVStack.IdentityServer.WebApi.Extensions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -26,6 +27,7 @@ namespace AVStack.IdentityServer.WebApi
         public void ConfigureServices(IServiceCollection services)
         {
             services.ConfigureServices(Configuration);
+            services.AddSingleton<IActionContextAccessor, ActionContextAccessor>();
         }
 
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)

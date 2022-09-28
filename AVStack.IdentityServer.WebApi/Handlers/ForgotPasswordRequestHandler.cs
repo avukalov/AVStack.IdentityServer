@@ -55,8 +55,9 @@ namespace AVStack.IdentityServer.WebApi.Handlers
 
         private async Task<string> CreateCallback(EventType eventType, UserEntity entity)
         {
+            // TODO: Replace hardcoded uri
             return QueryHelpers
-                .AddQueryString("http://localhost:4200/account/password-reset", new Dictionary<string, string>
+                .AddQueryString("https://localhost:5005/Account/PasswordReset", new Dictionary<string, string>
                 {
                     {"token", await _userManager.GeneratePasswordResetTokenAsync(entity)},
                     {"userId", entity.Id.ToString()}

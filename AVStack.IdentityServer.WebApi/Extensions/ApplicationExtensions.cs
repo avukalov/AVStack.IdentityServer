@@ -32,9 +32,9 @@ namespace AVStack.IdentityServer.WebApi.Extensions
         public static void ConfigureApplication(this IApplicationBuilder app)
         {
             app.UseCors("Default");
-            //app.UseHttpsRedirection();
+            app.UseHttpsRedirection();
             app.UseRouting();
-
+            app.UseStaticFiles();
 
             app.UseIdentityServer();
             //app.UseAuthentication();
@@ -44,7 +44,7 @@ namespace AVStack.IdentityServer.WebApi.Extensions
         }
         public static void ConfigureDevelopmentApplication(this IApplicationBuilder app)
         {
-            app.ApplyMigrations();
+            //app.ApplyMigrations();
             app.InitialSeed();
 
             app.UseDeveloperExceptionPage();
@@ -62,13 +62,14 @@ namespace AVStack.IdentityServer.WebApi.Extensions
                 if (serviceScope != null)
                 {
                     var identityContext = serviceScope.ServiceProvider.GetRequiredService<AccountDbContext>();
-                    var configurationContext = serviceScope.ServiceProvider.GetRequiredService<AccountDbContext>();
-                    var persistedGrantContext = serviceScope.ServiceProvider.GetRequiredService<AccountDbContext>();
+                    var configurationContext = serviceScope.ServiceProvider.GetRequiredService<ConfigurationDbContext>();
+                    var persistedGrantContext = serviceScope.ServiceProvider.GetRequiredService<PersistedGrantDbContext>();
 
                     identityContext.Database.EnsureCreated();
                     configurationContext.Database.EnsureCreated();
                     persistedGrantContext.Database.EnsureCreated();
-
+                    
+                    // TODO: Apply Migration only if there is no tables present
                     identityContext.Database.Migrate();
                     configurationContext.Database.Migrate();
                     persistedGrantContext.Database.Migrate();
@@ -230,13 +231,39 @@ namespace AVStack.IdentityServer.WebApi.Extensions
                             IdentityServerConstants.StandardScopes.Address,
                             IdentityServerConstants.StandardScopes.Email,
                             IdentityServerConstants.StandardScopes.Phone,
-                            "avcloud.api.create",
-                            "avcloud.api.read",
-                            "avcloud.api.update",
-                            "avcloud.api.delete",
-                            "avcloud.api.full"
+                            IdentityServerConstants.StandardScopes.OfflineAccess
                         },
 
+                    }.ToEntity(),
+                    
+                    // Angular SPA testing application
+                    new Client
+                    {
+                        ClientId = Guid.NewGuid().ToString(),
+                        ClientName = "avstack.test.ui",
+                        AllowedGrantTypes = GrantTypes.Code,
+                        RequireClientSecret = false,
+                        RequirePkce = true,
+                        AllowAccessTokensViaBrowser = true,
+                        RequireConsent = false,
+                        AccessTokenLifetime = 6000,
+                        FrontChannelLogoutUri = "http://localhost:4300/front-channel-signout-callback",
+                        RedirectUris = new List<string>
+                        {
+                            "http://localhost:4300/signin-callback",
+                            "http://localhost:4300/assets/silent-callback.html"
+                        },
+                        PostLogoutRedirectUris = new List<string>
+                        {
+                            "http://localhost:4300/signout-callback"
+                        },
+                        AllowedCorsOrigins = { "http://localhost:4200", "http://localhost:4300" },
+                        AllowedScopes =
+                        {
+                            IdentityServerConstants.StandardScopes.OpenId,
+                            IdentityServerConstants.StandardScopes.Profile,
+                            IdentityServerConstants.StandardScopes.Email,
+                        },
                     }.ToEntity(),
 
                 };

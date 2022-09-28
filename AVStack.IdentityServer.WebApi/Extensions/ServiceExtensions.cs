@@ -10,6 +10,7 @@ using AVStack.MessageBus.Extensions;
 using FluentValidation.AspNetCore;
 using IdentityServer4.Configuration;
 using IdentityServer4.Services;
+using IdentityServer4.Test;
 using MediatR;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -18,6 +19,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Models;
 using RabbitMQ.Client;
+using AVStack.IdentityServer.WebApi.Controllers;
 
 namespace AVStack.IdentityServer.WebApi.Extensions
 {
@@ -74,11 +76,12 @@ namespace AVStack.IdentityServer.WebApi.Extensions
                     option.User.RequireUniqueEmail = true;
                     option.Password = new PasswordOptions
                     {
-                        RequiredLength = 8,
-                        RequireDigit = true,
-                        RequiredUniqueChars = 2,
-                        RequireUppercase = true,
-                        RequireLowercase = true
+                        RequiredLength = Int32.Parse(configuration.GetSection("IdentityOptions")["PasswordOptions:RequiredLength"]),
+                        RequireDigit = Convert.ToBoolean(configuration.GetSection("IdentityOptions")["PasswordOptions:RequireDigit"]),
+                        RequiredUniqueChars = Int32.Parse(configuration.GetSection("IdentityOptions")["PasswordOptions:RequiredUniqueChars"]),
+						RequireNonAlphanumeric = Convert.ToBoolean(configuration.GetSection("IdentityOptions")["PasswordOptions:RequireNonAlphanumeric"]),
+                        RequireUppercase = Convert.ToBoolean(configuration.GetSection("IdentityOptions")["PasswordOptions:RequireUppercase"]),
+                        RequireLowercase = Convert.ToBoolean(configuration.GetSection("IdentityOptions")["PasswordOptions:RequireLowercase"])
                     };
                     option.Lockout = new LockoutOptions
                     {
@@ -86,6 +89,7 @@ namespace AVStack.IdentityServer.WebApi.Extensions
                         MaxFailedAccessAttempts = 5,
                         DefaultLockoutTimeSpan = TimeSpan.FromDays(365),
                     };
+                    
                 })
                 .AddEntityFrameworkStores<AccountDbContext>()
                 .AddDefaultTokenProviders();
@@ -95,14 +99,14 @@ namespace AVStack.IdentityServer.WebApi.Extensions
             services
                 .AddIdentityServer(options =>
                 {
-                    options.UserInteraction = new UserInteractionOptions
-                    {
-                        LoginUrl = configuration.GetSection("IdentityServerOptions")["UserInteraction:LoginUrl"],
-                        LogoutUrl = configuration.GetSection("IdentityServerOptions")["UserInteraction:LogoutUrl"],
-                        ConsentUrl = configuration.GetSection("IdentityServerOptions")["UserInteraction:ConsentUrl"],
-                        ErrorUrl = configuration.GetSection("IdentityServerOptions")["UserInteraction:ErrorUrl"],
-                        // DeviceVerificationUrl = configuration.GetSection("IdentityServerOptions")["UserInteraction:DeviceVerificationUrl"],
-                    };
+                    // options.UserInteraction = new UserInteractionOptions
+                    // {
+                    //     LoginUrl = configuration.GetSection("IdentityServerOptions")["UserInteraction:LoginUrl"],
+                    //     LogoutUrl = configuration.GetSection("IdentityServerOptions")["UserInteraction:LogoutUrl"],
+                    //     ConsentUrl = configuration.GetSection("IdentityServerOptions")["UserInteraction:ConsentUrl"],
+                    //     ErrorUrl = configuration.GetSection("IdentityServerOptions")["UserInteraction:ErrorUrl"],
+                    //     // DeviceVerificationUrl = configuration.GetSection("IdentityServerOptions")["UserInteraction:DeviceVerificationUrl"],
+                    // };
 
                     options.Events = new EventsOptions
                     {
@@ -112,7 +116,11 @@ namespace AVStack.IdentityServer.WebApi.Extensions
                         RaiseInformationEvents = false
                     };
 
+                    options.Authentication.CookieLifetime = TimeSpan.FromMinutes(5);
+                    options.Authentication.CookieSlidingExpiration = true;
+
                 })
+                // .AddTestUsers(TestUsers.Users)
                 .AddAspNetIdentity<UserEntity>()
                 .AddConfigurationStore(options =>
                 {
@@ -137,7 +145,8 @@ namespace AVStack.IdentityServer.WebApi.Extensions
                     // options.EnableTokenCleanup = true;
                     // options.TokenCleanupInterval = 30;
                 })
-                .AddProfileService<ProfileService>()
+                //.AddProfileService<ProfileService>()
+                // TODO: Add self sign cert for docker
                 .AddDeveloperSigningCredential();
         }
         private static void ConfigureCors(this IServiceCollection services)
@@ -147,7 +156,7 @@ namespace AVStack.IdentityServer.WebApi.Extensions
                 options.AddPolicy("Default", policy =>
                 {
                     policy
-                        .WithOrigins("http://localhost:4200", "http://localhost:4201")
+                        .WithOrigins("http://localhost:4200", "http://localhost:4300")
                         //.SetIsOriginAllowed(_ => true) // It's required to use 'any origin' together with 'allow credentials'
                         .AllowAnyHeader()
                         .AllowAnyMethod()
@@ -165,7 +174,7 @@ namespace AVStack.IdentityServer.WebApi.Extensions
         }
         private static void ConfigureWebApi(this IServiceCollection services)
         {
-            services.AddControllers(options =>
+            services.AddControllersWithViews(options =>
                 {
                     //options.Filters.Add(typeof(ValidateModelStateAttribute));
                 })

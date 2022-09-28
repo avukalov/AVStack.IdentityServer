@@ -22,6 +22,8 @@ namespace AVStack.IdentityServer.WebApi
         {
             public const string Authorize = "connect/authorize";
             public const string AuthorizeCallback = Authorize + "/callback";
+            public const string EndSession = "connect/endsession";
+            public const string EndSessionCallback = EndSession + "/callback";
         }
 
         private readonly IAuthorizeRequestValidator _validator;
@@ -40,6 +42,7 @@ namespace AVStack.IdentityServer.WebApi
 
         public async Task<AuthorizationRequest> ParseAsync(string returnUrl)
         {
+            _logger.LogInformation("ParseAsync");
             if (IsValidReturnUrl(returnUrl))
             {
                 var parameters = returnUrl.ReadQueryStringAsNameValueCollection();
@@ -47,12 +50,12 @@ namespace AVStack.IdentityServer.WebApi
                 var result = await _validator.ValidateAsync(parameters, user);
                 if (!result.IsError)
                 {
-                    _logger.LogTrace("AuthorizationRequest being returned");
+                    _logger.LogInformation("AuthorizationRequest being returned");
                     return result.ValidatedRequest.ToAuthorizationRequest();
                 }
             }
 
-            _logger.LogTrace("No AuthorizationRequest being returned");
+            _logger.LogInformation("No AuthorizationRequest being returned");
             return null;
         }
 
@@ -70,14 +73,17 @@ namespace AVStack.IdentityServer.WebApi
                 }
 
                 if (returnUrl.EndsWith(ProtocolRoutePaths.Authorize, StringComparison.Ordinal) ||
-                    returnUrl.EndsWith(ProtocolRoutePaths.AuthorizeCallback, StringComparison.Ordinal))
+                    returnUrl.EndsWith(ProtocolRoutePaths.AuthorizeCallback, StringComparison.Ordinal) ||
+                    returnUrl.EndsWith(ProtocolRoutePaths.EndSession, StringComparison.Ordinal) ||
+                    returnUrl.EndsWith(ProtocolRoutePaths.EndSessionCallback, StringComparison.Ordinal)
+                    )
                 {
-                    _logger.LogTrace("returnUrl is valid");
+                    _logger.LogInformation("returnUrl is valid");
                     return true;
                 }
             }
 
-            _logger.LogTrace("returnUrl is not valid");
+            _logger.LogInformation("returnUrl is not valid");
             return false;
         }
     }
