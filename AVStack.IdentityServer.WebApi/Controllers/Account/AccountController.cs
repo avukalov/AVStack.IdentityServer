@@ -15,13 +15,17 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Threading.Tasks;
 using AVStack.IdentityServer.WebApi.Controllers;
 using AVStack.IdentityServer.WebApi.Data.Entities;
+using AVStack.IdentityServer.WebApi.Models.Options;
 using AVStack.IdentityServer.WebApi.Models.Requests;
 using MediatR;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using Microsoft.Extensions.Options;
 
 namespace AVStack.IdentityServer.WebApi.Controllers
 {
@@ -34,14 +38,15 @@ namespace AVStack.IdentityServer.WebApi.Controllers
     [AllowAnonymous]
     public class AccountController : Controller
     {
-        private readonly TestUserStore _users;
-        private readonly IIdentityServerInteractionService _interaction;
-        private readonly IClientStore _clientStore;
-        private readonly IAuthenticationSchemeProvider _schemeProvider;
-        private readonly IEventService _events;
         private readonly SignInManager<UserEntity> _signInManager;
         private readonly UserManager<UserEntity> _userManager;
         private readonly IMediator _mediator;
+        private readonly IIdentityServerInteractionService _interaction;
+        private readonly IAuthenticationSchemeProvider _schemeProvider;
+        private readonly IClientStore _clientStore;
+        private readonly IEventService _events;
+        private readonly AccountOptions _accountOptions;
+        private readonly IdentityOptions _identityOptions;
 
         public AccountController(
             IIdentityServerInteractionService interaction,
@@ -50,14 +55,10 @@ namespace AVStack.IdentityServer.WebApi.Controllers
             IEventService events, 
             SignInManager<UserEntity> signInManager, 
             UserManager<UserEntity> userManager,
-            IMediator mediator
-            // TestUserStore users = null
-            )
-        {
-            // if the TestUserStore is not in DI, then we'll just use the global users collection
-            // this is where you would plug in your own custom identity management library (e.g. ASP.NET Identity)
-            // _users = users ?? new TestUserStore(TestUsers.Users);
-
+            IMediator mediator, 
+            IOptions<AccountOptions> accountOptions,
+            IOptions<IdentityOptions> identityOptions
+        ) {
             _interaction = interaction;
             _clientStore = clientStore;
             _schemeProvider = schemeProvider;
@@ -65,6 +66,9 @@ namespace AVStack.IdentityServer.WebApi.Controllers
             _signInManager = signInManager;
             _userManager = userManager;
             _mediator = mediator;
+            _accountOptions = accountOptions.Value;
+            _identityOptions = identityOptions.Value;
+            
         }
 
         /// <summary>
@@ -92,12 +96,11 @@ namespace AVStack.IdentityServer.WebApi.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Login(LoginInputModel model, string button)
         {
-            // check if we are in the context of an authorization request
             var context = await _interaction.GetAuthorizationContextAsync(model.ReturnUrl);
 
-            // the user clicked the "cancel" button
             if (button != "login")
             {
+                // TODO: Native Clients
                 if (context != null)
                 {
                     // if the user cancels, send a result back into IdentityServer as if they 
@@ -115,75 +118,88 @@ namespace AVStack.IdentityServer.WebApi.Controllers
 
                     return Redirect(model.ReturnUrl);
                 }
-                else
-                {
-                    // since we don't have a valid context, then we just go back to the home page
-                    return Redirect("~/");
-                }
+                
+                // since we don't have a valid context, then we just go back to the home page
+                return Redirect("~/");
             }
 
             if (ModelState.IsValid)
             {
-                // validate username/password against in-memory store
-                var userEntity = await _userManager.FindByNameAsync(model.Username);
-
-                var result  = await _signInManager.CheckPasswordSignInAsync(userEntity, model.Password, true);
-                if (result.Succeeded)
+                // Check if user's input is username or email 
+                UserEntity userEntity = null;
+                if (IsValidEmail(model.UsernameOrEmail))
                 {
-                    // var user = _users.FindByUsername(model.Username);
-                    await _events.RaiseAsync(new UserLoginSuccessEvent(userEntity.UserName, userEntity.Id.ToString(), userEntity.UserName, clientId: context?.Client.ClientId));
-
-                    // only set explicit expiration here if user chooses "remember me". 
-                    // otherwise we rely upon expiration configured in cookie middleware.
-                    AuthenticationProperties props = null;
-                    if (AccountOptions.AllowRememberLogin && model.RememberLogin)
-                    {
-                        props = new AuthenticationProperties
-                        {
-                            IsPersistent = true,
-                            ExpiresUtc = DateTimeOffset.UtcNow.Add(AccountOptions.RememberMeLoginDuration)
-                        };
-                    };
-
-                    // issue authentication cookie with subject ID and username
-                    var isuser = new IdentityServerUser(userEntity.Id.ToString())
-                    {
-                        DisplayName = userEntity.FullName
-                    };
-
-                    await HttpContext.SignInAsync(isuser, props);
-
-                    if (context != null)
-                    {
-                        if (context.IsNativeClient())
-                        {
-                            // The client is native, so this change in how to
-                            // return the response is for better UX for the end user.
-                            return this.LoadingPage("Redirect", model.ReturnUrl);
-                        }
-
-                        // we can trust model.ReturnUrl since GetAuthorizationContextAsync returned non-null
-                        return Redirect(model.ReturnUrl);
-                    }
-
-                    // request for a local page
-                    if (Url.IsLocalUrl(model.ReturnUrl))
-                    {
-                        return Redirect(model.ReturnUrl);
-                    }
-                    else if (string.IsNullOrEmpty(model.ReturnUrl))
-                    {
-                        return Redirect("~/");
-                    }
-                    else
-                    {
-                        // user might have clicked on a malicious link - should be logged
-                        throw new Exception("invalid return URL");
-                    }
+                    userEntity = await _userManager.FindByEmailAsync(model.UsernameOrEmail);
+                }
+                else
+                {
+                    userEntity = await _userManager.FindByNameAsync(model.UsernameOrEmail);
                 }
 
-                await _events.RaiseAsync(new UserLoginFailureEvent(model.Username, "invalid credentials", clientId:context?.Client.ClientId));
-                ModelState.AddModelError(string.Empty, AccountOptions.InvalidCredentialsErrorMessage);
+                if (userEntity != null)
+                {
+                    var result  = await _signInManager.CheckPasswordSignInAsync(userEntity, model.Password, _identityOptions.Lockout.AllowedForNewUsers);
+                    
+                    if (result.Succeeded)
+                    {
+                        await _events.RaiseAsync(new UserLoginSuccessEvent(userEntity.UserName, userEntity.Id.ToString(), userEntity.UserName, clientId: context?.Client.ClientId));
+                        
+                        // only set explicit expiration here if user chooses "remember me". 
+                        // otherwise we rely upon expiration configured in cookie middleware.
+                        AuthenticationProperties authenticationProperties = null;
+                        
+                        if (_accountOptions.AllowRememberLogin && model.RememberLogin)
+                        {
+                            authenticationProperties = new AuthenticationProperties
+                            {
+                                IsPersistent = true,
+                                ExpiresUtc = DateTimeOffset.UtcNow.Add(_accountOptions.RememberMeLoginDuration)
+                            };
+                        };
+
+                        // issue authentication cookie with subject ID and username
+                        var identityServerUser = new IdentityServerUser(userEntity.Id.ToString())
+                        {
+                            DisplayName = userEntity.UserName
+                        };
+
+                        //await _signInManager.SignInAsync(userEntity, authenticationProperties);
+                        await HttpContext.SignInAsync(identityServerUser, authenticationProperties);
+
+                        // TODO: Native Clients
+                        if (context != null)
+                        {
+                            if (context.IsNativeClient())
+                            {
+                                // The client is native, so this change in how to
+                                // return the response is for better UX for the end user.
+                                return this.LoadingPage("Redirect", model.ReturnUrl);
+                            }
+
+                            // we can trust model.ReturnUrl since GetAuthorizationContextAsync returned non-null
+                            return Redirect(model.ReturnUrl);
+                        }
+
+                        // request for a local page
+                        if (Url.IsLocalUrl(model.ReturnUrl))
+                        {
+                            return Redirect(model.ReturnUrl);
+                        }
+                        else if (string.IsNullOrEmpty(model.ReturnUrl))
+                        {
+                            return Redirect("~/");
+                        }
+                        else
+                        {
+                            // user might have clicked on a malicious link - should be logged
+                            throw new Exception("invalid return URL");
+                        }
+                    }
+                    
+                }
+
+                await _events.RaiseAsync(new UserLoginFailureEvent(model.UsernameOrEmail, _accountOptions.InvalidCredentialsErrorMessage, clientId:context?.Client.ClientId));
+                ModelState.AddModelError(string.Empty, _accountOptions.InvalidCredentialsErrorMessage);
             }
 
             // something went wrong, show form with error
@@ -278,6 +294,22 @@ namespace AVStack.IdentityServer.WebApi.Controllers
             return Redirect("~/Diagnostics");
         }
         
+        [HttpPost()]
+        public async Task<IActionResult> SignUp([FromBody] SignUpRequest request)
+        {
+            var result = await _mediator.Send(request);
+
+            Response.StatusCode = (int)result.Status;
+            return new JsonResult(result);
+        }
+        
+        [HttpGet]
+        public IActionResult Test()
+        {
+            return Ok("test success");
+        }
+        
+        
         [HttpGet]
         public IActionResult AccessDenied()
         {
@@ -295,14 +327,14 @@ namespace AVStack.IdentityServer.WebApi.Controllers
             var context = await _interaction.GetAuthorizationContextAsync(returnUrl);
             if (context?.IdP != null && await _schemeProvider.GetSchemeAsync(context.IdP) != null)
             {
-                var local = context.IdP == IdentityServer4.IdentityServerConstants.LocalIdentityProvider;
+                var local = context.IdP == IdentityServerConstants.LocalIdentityProvider;
 
                 // this is meant to short circuit the UI and only trigger the one external IdP
                 var vm = new LoginViewModel
                 {
                     EnableLocalLogin = local,
                     ReturnUrl = returnUrl,
-                    Username = context?.LoginHint,
+                    UsernameOrEmail = context?.LoginHint,
                 };
 
                 if (!local)
@@ -340,10 +372,10 @@ namespace AVStack.IdentityServer.WebApi.Controllers
 
             return new LoginViewModel
             {
-                AllowRememberLogin = AccountOptions.AllowRememberLogin,
-                EnableLocalLogin = allowLocal && AccountOptions.AllowLocalLogin,
+                AllowRememberLogin = _accountOptions.AllowRememberLogin,
+                EnableLocalLogin = allowLocal && _accountOptions.AllowLocalLogin,
                 ReturnUrl = returnUrl,
-                Username = context?.LoginHint,
+                UsernameOrEmail = context?.LoginHint,
                 ExternalProviders = providers.ToArray()
             };
         }
@@ -351,14 +383,14 @@ namespace AVStack.IdentityServer.WebApi.Controllers
         private async Task<LoginViewModel> BuildLoginViewModelAsync(LoginInputModel model)
         {
             var vm = await BuildLoginViewModelAsync(model.ReturnUrl);
-            vm.Username = model.Username;
+            vm.UsernameOrEmail = model.UsernameOrEmail;
             vm.RememberLogin = model.RememberLogin;
             return vm;
         }
 
         private async Task<LogoutViewModel> BuildLogoutViewModelAsync(string logoutId)
         {
-            var vm = new LogoutViewModel { LogoutId = logoutId, ShowLogoutPrompt = AccountOptions.ShowLogoutPrompt };
+            var vm = new LogoutViewModel { LogoutId = logoutId, ShowLogoutPrompt = _accountOptions.ShowLogoutPrompt };
 
             if (User?.Identity.IsAuthenticated != true)
             {
@@ -387,7 +419,7 @@ namespace AVStack.IdentityServer.WebApi.Controllers
 
             var vm = new LoggedOutViewModel
             {
-                AutomaticRedirectAfterSignOut = AccountOptions.AutomaticRedirectAfterSignOut,
+                AutomaticRedirectAfterSignOut = _accountOptions.AutomaticRedirectAfterSignOut,
                 PostLogoutRedirectUri = logout?.PostLogoutRedirectUri,
                 ClientName = string.IsNullOrEmpty(logout?.ClientName) ? logout?.ClientId : logout?.ClientName,
                 SignOutIframeUrl = logout?.SignOutIFrameUrl,
@@ -416,6 +448,11 @@ namespace AVStack.IdentityServer.WebApi.Controllers
             }
 
             return vm;
+        }
+        
+        private bool IsValidEmail(string email)
+        {
+            return new EmailAddressAttribute().IsValid(email);
         }
     }
 }

@@ -22,8 +22,6 @@ namespace AVStack.IdentityServer.WebApi
         {
             public const string Authorize = "connect/authorize";
             public const string AuthorizeCallback = Authorize + "/callback";
-            public const string EndSession = "connect/endsession";
-            public const string EndSessionCallback = EndSession + "/callback";
         }
 
         private readonly IAuthorizeRequestValidator _validator;
@@ -73,9 +71,7 @@ namespace AVStack.IdentityServer.WebApi
                 }
 
                 if (returnUrl.EndsWith(ProtocolRoutePaths.Authorize, StringComparison.Ordinal) ||
-                    returnUrl.EndsWith(ProtocolRoutePaths.AuthorizeCallback, StringComparison.Ordinal) ||
-                    returnUrl.EndsWith(ProtocolRoutePaths.EndSession, StringComparison.Ordinal) ||
-                    returnUrl.EndsWith(ProtocolRoutePaths.EndSessionCallback, StringComparison.Ordinal)
+                    returnUrl.EndsWith(ProtocolRoutePaths.AuthorizeCallback, StringComparison.Ordinal)
                     )
                 {
                     _logger.LogInformation("returnUrl is valid");

@@ -49,6 +49,8 @@ namespace AVStack.IdentityServer.WebApi.Handlers
             var entity = new UserEntity();
 
             _mapper.Map(request, entity);
+            
+            
 
             var signUpResult = await _userManager.CreateAsync(entity, request.Password);
 

@@ -31,8 +31,8 @@ namespace AVStack.IdentityServer.WebApi.Extensions
     {
         public static void ConfigureApplication(this IApplicationBuilder app)
         {
-            app.UseCors("Default");
-            app.UseHttpsRedirection();
+            app.UseCors("Development");
+            //app.UseHttpsRedirection();
             app.UseRouting();
             app.UseStaticFiles();
 
@@ -48,12 +48,12 @@ namespace AVStack.IdentityServer.WebApi.Extensions
             app.InitialSeed();
 
             app.UseDeveloperExceptionPage();
-            app.UseSwagger();
-            app.UseSwaggerUI(c =>
-                c.SwaggerEndpoint(
-                    "/swagger/v1/swagger.json",
-                    "AVStack.IdentityServer.WebApi v1"
-                ));
+            // app.UseSwagger();
+            // app.UseSwaggerUI(c =>
+            //     c.SwaggerEndpoint(
+            //         "/swagger/v1/swagger.json",
+            //         "AVStack.IdentityServer.WebApi v1"
+            //     ));
         }
         private static void ApplyMigrations(this IApplicationBuilder app)
         {
