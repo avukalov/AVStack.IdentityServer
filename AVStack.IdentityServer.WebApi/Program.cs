@@ -42,10 +42,16 @@ namespace AVStack.IdentityServer.WebApi
                 {
                     wb.UseKestrel();
                     wb.UseContentRoot(Directory.GetCurrentDirectory());
-                    wb.UseUrls("http://localhost:5004", "https://localhost:5005", "http://192.168.1.2:5004", "https://192.168.1.2:5005");
+                    wb.UseUrls(
+                        // HTTP
+                        "http://localhost:5004",
+                        "http://192.168.1.2:5004",
+                        // HTTPS
+                        "https://localhost:5005",
+                        "https://192.168.1.2:5005");
                     wb.UseStartup<Startup>();
                 })
-                .UseSerilog()
+                //.UseSerilog()
                 .Build();
         }
     }

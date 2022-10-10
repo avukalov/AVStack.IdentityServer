@@ -92,7 +92,7 @@ namespace AVStack.IdentityServer.WebApi.Handlers
         {
             return QueryHelpers
                 .AddQueryString(
-                    "http://localhost:4200/auth/email-confirmation",
+                    "https://localhost:5005/Account/EmailConfirmation",
                     new Dictionary<string, string>
                     {
                         { "token", await _userManager.GenerateEmailConfirmationTokenAsync(entity) },
