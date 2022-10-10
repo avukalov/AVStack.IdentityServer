@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using AVStack.IdentityServer.WebApi.Extensions;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Hosting;
@@ -37,7 +38,19 @@ namespace AVStack.IdentityServer.WebApi
             return Host
                 .CreateDefaultBuilder(args)
                 .ConfigureAppConfiguration(Helpers.AddConfiguration())
-                .ConfigureWebHostDefaults(wb => wb.UseStartup<Startup>())
+                .ConfigureWebHostDefaults(wb =>
+                {
+                    wb.UseKestrel();
+                    wb.UseContentRoot(Directory.GetCurrentDirectory());
+                    wb.UseUrls(
+                        // HTTP
+                        "http://localhost:5004",
+                        "http://192.168.1.2:5004",
+                        // HTTPS
+                        "https://localhost:5005",
+                        "https://192.168.1.2:5005");
+                    wb.UseStartup<Startup>();
+                })
                 //.UseSerilog()
                 .Build();
         }

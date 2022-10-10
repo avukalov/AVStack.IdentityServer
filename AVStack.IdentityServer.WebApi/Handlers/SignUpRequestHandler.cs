@@ -49,6 +49,8 @@ namespace AVStack.IdentityServer.WebApi.Handlers
             var entity = new UserEntity();
 
             _mapper.Map(request, entity);
+            
+            
 
             var signUpResult = await _userManager.CreateAsync(entity, request.Password);
 
@@ -90,7 +92,7 @@ namespace AVStack.IdentityServer.WebApi.Handlers
         {
             return QueryHelpers
                 .AddQueryString(
-                    "http://localhost:4200/account/email-confirmation",
+                    "https://localhost:5005/Account/EmailConfirmation",
                     new Dictionary<string, string>
                     {
                         { "token", await _userManager.GenerateEmailConfirmationTokenAsync(entity) },

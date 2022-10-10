@@ -7,6 +7,8 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Infrastructure;
+using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.Extensions.Primitives;
 
 
@@ -14,11 +16,12 @@ namespace AVStack.IdentityServer.WebApi.Controllers
 {
     [AllowAnonymous]
     [ApiController]
-    [Route("account")]
-    public class AccountController : ControllerBase
+    [Route("accountt")]
+    public class AccounttController : ControllerBase
     {
         #region Fields
 
+        private readonly IActionContextAccessor _accessor;
         private readonly IIdentityServerInteractionService _interactionService;
         private readonly SignInManager<UserEntity> _signInManager;
         private readonly IMediator _mediator;
@@ -27,15 +30,16 @@ namespace AVStack.IdentityServer.WebApi.Controllers
 
         #region Constructors
 
-        public AccountController(
+        public AccounttController(
+            
             IIdentityServerInteractionService interactionService,
             SignInManager<UserEntity> signInManager,
-            IMediator mediator
-        )
+            IMediator mediator, IActionContextAccessor accessor)
         {
             _interactionService = interactionService;
             _signInManager = signInManager;
             _mediator = mediator;
+            _accessor = accessor;
         }
 
         #endregion
@@ -69,14 +73,14 @@ namespace AVStack.IdentityServer.WebApi.Controllers
         [HttpPost("sign-in")]
         public async Task<IActionResult> SignInAsync([FromBody] SignInRequest request)
         {
-            // Since we are receiving request from spa, we do not need to handle cancel yet
+            // Since we are receiving request from spa, we do not need to handle cancel (yet)
 
             var context = await _interactionService.GetAuthorizationContextAsync(request.ReturnUrl);
 
             if (context == null) return Unauthorized();
 
             var result = await _mediator.Send(request);
-
+            
             Response.StatusCode = (int) result.Status;
             return !result.Succeeded ? new JsonResult(result) : new JsonResult(new { redirectUrl = request.ReturnUrl });
         }
@@ -86,8 +90,6 @@ namespace AVStack.IdentityServer.WebApi.Controllers
         {
             var context = await _interactionService.GetLogoutContextAsync(model.LogoutId);
 
-            var showSignoutPrompt = context?.ShowSignoutPrompt != false;
-
             if (User?.Identity?.IsAuthenticated == true)
             {
                 await _signInManager.SignOutAsync();
@@ -95,6 +97,8 @@ namespace AVStack.IdentityServer.WebApi.Controllers
 
             // TODO: Add support for external signout
 
+            var showSignoutPrompt = context?.ShowSignoutPrompt != false;
+            
             // Handle this response from service
             return Ok(new
             {

@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using AVStack.IdentityServer.WebApi.Data.Entities;
 using AVStack.IdentityServer.WebApi.Models.Constants;
+using IdentityServer4;
 using IdentityServer4.Models;
 using IdentityServer4.Services;
 using Microsoft.AspNetCore.Identity;
@@ -52,7 +53,10 @@ namespace AVStack.IdentityServer.WebApi.Services
                 // new Claim(IdentityClaimDefaults.HasuraRole, GetHighestUserRole(systemRoles, userRoles)),
                 new Claim(IdentityClaimDefaults.HasuraRole, userRoles.First()),
                 new Claim(IdentityClaimDefaults.HasuraDefaultRole,IdentityRoleDefaults.User),
-                new Claim(IdentityClaimDefaults.HasuraAllowedRoles, JsonSerializer.Serialize(systemRoles.Select(r => r.Name).ToArray())),
+                new Claim(
+                    IdentityClaimDefaults.HasuraAllowedRoles,
+                    JsonSerializer.Serialize(systemRoles.Select(r => r.Name).ToArray()),
+                        IdentityServerConstants.ClaimValueTypes.Json),
             };
 
             return Task.FromResult(claims);

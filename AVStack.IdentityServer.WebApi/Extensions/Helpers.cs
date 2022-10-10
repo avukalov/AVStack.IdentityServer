@@ -30,6 +30,8 @@ namespace AVStack.IdentityServer.WebApi.Extensions
             var configuration = BuildConfiguration("appsettings", environment);
 
             return new LoggerConfiguration()
+                .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", LogEventLevel.Error)
+                .MinimumLevel.Override("Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware", LogEventLevel.Error)
                 .ReadFrom.Configuration(configuration)
                 .Enrich.FromLogContext()
                 .CreateLogger();

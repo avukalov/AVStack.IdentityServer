@@ -31,10 +31,10 @@ namespace AVStack.IdentityServer.WebApi.Extensions
     {
         public static void ConfigureApplication(this IApplicationBuilder app)
         {
-            app.UseCors("Default");
+            app.UseCors("Development");
             //app.UseHttpsRedirection();
             app.UseRouting();
-
+            app.UseStaticFiles();
 
             app.UseIdentityServer();
             //app.UseAuthentication();
@@ -44,16 +44,16 @@ namespace AVStack.IdentityServer.WebApi.Extensions
         }
         public static void ConfigureDevelopmentApplication(this IApplicationBuilder app)
         {
-            app.ApplyMigrations();
+            //app.ApplyMigrations();
             app.InitialSeed();
 
             app.UseDeveloperExceptionPage();
-            app.UseSwagger();
-            app.UseSwaggerUI(c =>
-                c.SwaggerEndpoint(
-                    "/swagger/v1/swagger.json",
-                    "AVStack.IdentityServer.WebApi v1"
-                ));
+            // app.UseSwagger();
+            // app.UseSwaggerUI(c =>
+            //     c.SwaggerEndpoint(
+            //         "/swagger/v1/swagger.json",
+            //         "AVStack.IdentityServer.WebApi v1"
+            //     ));
         }
         private static void ApplyMigrations(this IApplicationBuilder app)
         {
@@ -62,13 +62,14 @@ namespace AVStack.IdentityServer.WebApi.Extensions
                 if (serviceScope != null)
                 {
                     var identityContext = serviceScope.ServiceProvider.GetRequiredService<AccountDbContext>();
-                    var configurationContext = serviceScope.ServiceProvider.GetRequiredService<AccountDbContext>();
-                    var persistedGrantContext = serviceScope.ServiceProvider.GetRequiredService<AccountDbContext>();
+                    var configurationContext = serviceScope.ServiceProvider.GetRequiredService<ConfigurationDbContext>();
+                    var persistedGrantContext = serviceScope.ServiceProvider.GetRequiredService<PersistedGrantDbContext>();
 
                     identityContext.Database.EnsureCreated();
                     configurationContext.Database.EnsureCreated();
                     persistedGrantContext.Database.EnsureCreated();
-
+                    
+                    // TODO: Apply Migration only if there is no tables present
                     identityContext.Database.Migrate();
                     configurationContext.Database.Migrate();
                     persistedGrantContext.Database.Migrate();
@@ -102,20 +103,6 @@ namespace AVStack.IdentityServer.WebApi.Extensions
                     // new ApiResource("avstack.identity-server.api.read", "AVStack IdentityServer Read").ToEntity(),
                     // new ApiResource("avstack.identity-server.api.write", "AVStack IdentityServer Write").ToEntity(),
                     // new ApiResource("avstack.identity-server.api.full", "AVStack IdentityServer Full").ToEntity(),
-
-                    // Message Center
-                    new ApiResource("avstack.message-center.api", "AVStack MessageCenter WebApi").ToEntity(),
-                    new ApiResource("avcloud.api", "AVCloud WebApi")
-                    {
-                        Scopes =
-                        {
-                            "avcloud.api.create",
-                            "avcloud.api.read",
-                            "avcloud.api.update",
-                            "avcloud.api.delete",
-                            "avcloud.api.full"
-                        }
-                    }.ToEntity(),
                 };
                 context.ApiResources.AddRange(apiResources);
                 context.SaveChanges();
@@ -148,28 +135,8 @@ namespace AVStack.IdentityServer.WebApi.Extensions
                 {
                     new ApiScope()
                     {
-                        Name = "avcloud.api.create",
-                        DisplayName = "AVCloud Create Scope",
-                    }.ToEntity(),
-                    new ApiScope()
-                    {
-                        Name = "avcloud.api.read",
-                        DisplayName = "AVCloud Read Scope",
-                    }.ToEntity(),
-                    new ApiScope()
-                    {
-                        Name = "avcloud.api.update",
-                        DisplayName = "AVCloud Update Scope",
-                    }.ToEntity(),
-                    new ApiScope()
-                    {
-                        Name = "avcloud.api.delete",
-                        DisplayName = "AVCloud Delete Scope",
-                    }.ToEntity(),
-                    new ApiScope()
-                    {
-                        Name = "avcloud.api.full",
-                        DisplayName = "AVCloud Full Scope",
+                        Name = "example.api",
+                        DisplayName = "Example Api Scope",
                     }.ToEntity(),
 
                 };
@@ -185,44 +152,28 @@ namespace AVStack.IdentityServer.WebApi.Extensions
             {
                 var clients = new List<ClientEntity>
                 {
-                    // AVStack Account Service
+                    // AVStack IdentityServer AdminUI (Angular)
                     new Client
                     {
                         ClientId = Guid.NewGuid().ToString(),
-                        ClientName = "avstack.accounts.api",
-                        AllowedGrantTypes = GrantTypes.ClientCredentials,
-                        ClientSecrets = new List<Secret>
-                        {
-                            new Secret("avstack.accounts.api".Sha512()),
-                        },
-                        AllowedScopes =
-                        {
-                            "avstack.message-center.api",
-                        }
-                    }.ToEntity(),
-
-                    // AVStack.Angular SPA application
-                    new Client
-                    {
-                        ClientId = Guid.NewGuid().ToString(),
-                        ClientName = "avstack.accounts.ui",
+                        ClientName = "AVStack IdentityServer AdminUI",
                         AllowedGrantTypes = GrantTypes.Code,
-                        AllowOfflineAccess = true,
+                        AllowOfflineAccess = false,
                         RequireClientSecret = false,
                         RequirePkce = true,
                         AllowAccessTokensViaBrowser = true,
                         RequireConsent = false,
-                        AccessTokenLifetime = 600,
+                        AccessTokenLifetime = (3600 * 24), // 1 day
                         RedirectUris = new List<string>
                         {
-                            "http://localhost:4200/account/signin-callback",
-                            "http://localhost:4200/assets/silent-callback.html"
+                            "http://localhost:4201/auth/signin-callback",
+                            "http://localhost:4201/assets/silent-callback.html"
                         },
                         PostLogoutRedirectUris = new List<string>
                         {
-                            "http://localhost:4200/account/signout-callback"
+                            "http://localhost:4201/auth/signout-callback"
                         },
-                        AllowedCorsOrigins = { "http://localhost:4200" },
+                        AllowedCorsOrigins = { "http://localhost:4201" },
                         AllowedScopes =
                         {
                             IdentityServerConstants.StandardScopes.OpenId,
@@ -230,13 +181,38 @@ namespace AVStack.IdentityServer.WebApi.Extensions
                             IdentityServerConstants.StandardScopes.Address,
                             IdentityServerConstants.StandardScopes.Email,
                             IdentityServerConstants.StandardScopes.Phone,
-                            "avcloud.api.create",
-                            "avcloud.api.read",
-                            "avcloud.api.update",
-                            "avcloud.api.delete",
-                            "avcloud.api.full"
                         },
 
+                    }.ToEntity(),
+                    
+                    // Angular SPA testing application
+                    new Client
+                    {
+                        ClientId = Guid.NewGuid().ToString(),
+                        ClientName = "avstack.test.ui",
+                        AllowedGrantTypes = GrantTypes.Code,
+                        RequireClientSecret = false,
+                        RequirePkce = true,
+                        AllowAccessTokensViaBrowser = true,
+                        RequireConsent = false,
+                        AccessTokenLifetime = 6000,
+                        FrontChannelLogoutUri = "http://localhost:4300/front-channel-signout-callback",
+                        RedirectUris = new List<string>
+                        {
+                            "http://localhost:4300/signin-callback",
+                            "http://localhost:4300/assets/silent-callback.html"
+                        },
+                        PostLogoutRedirectUris = new List<string>
+                        {
+                            "http://localhost:4300/signout-callback"
+                        },
+                        AllowedCorsOrigins = { "http://localhost:4200", "http://localhost:4300" },
+                        AllowedScopes =
+                        {
+                            IdentityServerConstants.StandardScopes.OpenId,
+                            IdentityServerConstants.StandardScopes.Profile,
+                            IdentityServerConstants.StandardScopes.Email,
+                        },
                     }.ToEntity(),
 
                 };
@@ -251,15 +227,15 @@ namespace AVStack.IdentityServer.WebApi.Extensions
             {
                 var superAdministrator = new UserEntity()
                 {
-                    FirstName = "Super",
+                    FirstName = "Admin",
                     LastName = "Administrator",
-                    Email = "superadmin@avstack.com",
-                    UserName = "superadmin",
+                    Email = "admin@avstack.com",
+                    UserName = "admin",
                     EmailConfirmed = true
                 };
                 
                 if (Task.Run(() => userManager.CreateAsync(superAdministrator, "@V$tack.123!")).Result.Succeeded)
-                    Task.Run(() => userManager.AddToRoleAsync(superAdministrator, IdentityRoleDefaults.SuperAdministrator)).Wait();
+                    Task.Run(() => userManager.AddToRoleAsync(superAdministrator, IdentityRoleDefaults.Administrator)).Wait();
             }
         }
         private static void SeedRoles(IServiceScope serviceScope)
@@ -269,13 +245,6 @@ namespace AVStack.IdentityServer.WebApi.Extensions
             {
                 var roles = new List<RoleEntity>
                 {
-                    new()
-                    {
-                        Name = IdentityRoleDefaults.SuperAdministrator,
-                        NormalizedName = IdentityRoleDefaults.SuperAdministrator.ToUpper(),
-                        Level = RoleLevel.SuperAdministrator
-
-                    },
                     new()
                     {
                         Name = IdentityRoleDefaults.Administrator,

@@ -26,6 +26,8 @@ namespace AVStack.IdentityServer.WebApi.Data
 
             modelBuilder.Entity<RoleEntity>().ToTable("AVRole");
             modelBuilder.Entity<IdentityRoleClaim<Guid>>().ToTable("AVRoleClaim");
+
+            modelBuilder.Entity<UserLoginHistory>().ToTable("AVUserLoginHistory");
         }
     }
 }

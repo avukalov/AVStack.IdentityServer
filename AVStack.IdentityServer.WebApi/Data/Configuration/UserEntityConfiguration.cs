@@ -1,3 +1,4 @@
+using System;
 using AVStack.IdentityServer.WebApi.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -18,6 +19,8 @@ namespace AVStack.IdentityServer.WebApi.Data.Configuration
             builder.Property(u => u.NormalizedUserName).HasMaxLength(100);
             builder.Property(u => u.NormalizedEmail).HasMaxLength(100);
             builder.Property(u => u.PhoneNumber).HasMaxLength(30);
+
+            builder.Property(u => u.DateCreated).HasDefaultValue(new DateTime());
         }
     }
 }
