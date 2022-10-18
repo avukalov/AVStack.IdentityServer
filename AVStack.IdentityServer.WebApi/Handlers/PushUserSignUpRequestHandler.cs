@@ -7,6 +7,8 @@ using System;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using AVStack.IdentityServer.Common.Enums;
+using AVStack.IdentityServer.WebApi.Services.Interfaces;
 
 namespace AVStack.IdentityServer.WebApi.Handlers
 {
@@ -16,16 +18,28 @@ namespace AVStack.IdentityServer.WebApi.Handlers
         private const string AccountUserRegistrationKey = "account.user.registration";
 
         private readonly IMessageBusFactory _busFactory;
+        private readonly IUserInteractionTokenService _userInteractionTokenService;
         private readonly ILogger<PushUserSignUpRequestHandler> _logger;
 
-        public PushUserSignUpRequestHandler(IMessageBusFactory busFactory, ILogger<PushUserSignUpRequestHandler> logger)
+        public PushUserSignUpRequestHandler(
+            IMessageBusFactory busFactory,
+            ILogger<PushUserSignUpRequestHandler> logger,
+            IUserInteractionTokenService userInteractionTokenService)
         {
             _busFactory = busFactory;
             _logger = logger;
+            _userInteractionTokenService = userInteractionTokenService;
         }
 
         protected override Task Handle(PushUserSignUpRequest request, CancellationToken cancellationToken)
         {
+            if (request.User is not null)
+            {
+                request.FullName = request.User.FullName;
+                request.EmailAddress = request.User.Email;
+                request.Callback = _userInteractionTokenService.CreateCallbackByEventType(EventType.UserRegistration, request.User).Result;
+            }
+            
             using (var producer = _busFactory.CreateProducer())
             {
                 var basicProperties = producer.CreateBasicProperties();

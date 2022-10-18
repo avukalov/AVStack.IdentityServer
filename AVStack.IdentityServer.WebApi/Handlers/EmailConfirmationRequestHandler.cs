@@ -34,8 +34,7 @@ namespace AVStack.IdentityServer.WebApi.Handlers
             {
                 response.Succeeded = false;
                 response.Status = HttpStatusCode.BadRequest;
-                response.Errors.Add("User", new []{ "User not found."});
-
+                response.Errors.Add(nameof(HttpStatusCode.BadRequest), new []{ "User not found."});
                 return response;
             }
 

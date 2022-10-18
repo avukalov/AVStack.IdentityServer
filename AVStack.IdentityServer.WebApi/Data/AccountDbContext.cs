@@ -9,6 +9,8 @@ namespace AVStack.IdentityServer.WebApi.Data
 {
     public class AccountDbContext : IdentityDbContext<UserEntity, RoleEntity, Guid>
     {
+        public DbSet<UserLoginHistory> UserLoginHistory { get; set; }
+        
         public AccountDbContext(DbContextOptions<AccountDbContext> options) : base(options)
         {
         }

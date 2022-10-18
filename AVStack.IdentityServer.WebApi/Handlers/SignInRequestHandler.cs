@@ -7,6 +7,7 @@ using AVStack.IdentityServer.WebApi.Models.Requests;
 using AVStack.IdentityServer.WebApi.Models.Responses;
 using MediatR;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Options;
 
 namespace AVStack.IdentityServer.WebApi.Handlers
 {
@@ -14,28 +15,34 @@ namespace AVStack.IdentityServer.WebApi.Handlers
     {
         private readonly SignInManager<UserEntity> _signInManager;
         private readonly UserManager<UserEntity> _userManager;
+        private readonly IdentityOptions _identityOptions;
         private readonly IMediator _mediator;
         private readonly IMapper _mapper;
 
-        public SignInRequestHandler(SignInManager<UserEntity> signInManager, UserManager<UserEntity> userManager, IMediator mediator, IMapper mapper)
+        public SignInRequestHandler(SignInManager<UserEntity> signInManager, UserManager<UserEntity> userManager, IMediator mediator, IMapper mapper, IOptions<IdentityOptions> identityOptions)
         {
             _signInManager = signInManager;
             _userManager = userManager;
             _mediator = mediator;
             _mapper = mapper;
+            _identityOptions = identityOptions.Value;
         }
 
         public async Task<IdentityResponse> Handle(SignInRequest request, CancellationToken cancellationToken)
         {
-            var response = new IdentityResponse {Title = nameof(SignInRequest), Succeeded = false};
+            var response = new IdentityResponse
+            {
+                Title = nameof(SignInRequest), 
+                Succeeded = false,
+            };
 
             var entity = await _userManager.FindByEmailAsync(request.Email);
 
             if (entity == null)
             {
                 response.Status = HttpStatusCode.BadRequest;
+                response.Message = "Invalid credentials.";
                 response.Errors.Add(nameof(HttpStatusCode.BadRequest), new []{ "Invalid credentials." });
-
                 return response;
             }
 
@@ -44,6 +51,7 @@ namespace AVStack.IdentityServer.WebApi.Handlers
             if (!result.Succeeded)
             {
                 response.Status = HttpStatusCode.BadRequest;
+                response.Message = nameof(HttpStatusCode.BadRequest);
                 response.Errors.Add(nameof(HttpStatusCode.BadRequest), new []{ "Invalid credentials." });
 
                 if (result.IsNotAllowed)
@@ -62,7 +70,6 @@ namespace AVStack.IdentityServer.WebApi.Handlers
             response.Succeeded = true;
             response.Status = HttpStatusCode.OK;
             response.Message = "User is successfully logged in.";
-
             return response;
         }
     }

@@ -1,0 +1,84 @@
+@model AVStack.IdentityServer.WebApi.Models.Requests.SignUpRequest
+
+<div class="register-page">
+  <div class="container-sm">
+    <div class="row justify-content-center">
+      <div class="col-12 col-md-10 col-lg-8 col-xl-6">
+        <div class="card mt-4 mb-3">
+          <div class="card-body">
+            <div class="row gy-1 py-4">
+              <!-- <img src="../src/assets/icon.jpg" alt="identity server logo" class="img-fluid"> -->
+              <h1 class="card-title text-center">Create Account</h1>
+              <p class="lead text-center text-muted">Use your IdentityServer Account</p>
+            </div>
+            <form asp-route="Register">
+              <div class="row mb-0 mb-lg-3">
+                <div class="col-lg-6 col-xs-12 mb-3 mb-lg-0">
+                  <div class="form-floating">
+                    <input type="text" class="form-control" id="floatingInputFN" placeholder="Firstname" asp-for="FirstName">
+                    <label for="floatingInputFN" asp-for="FirstName">Firstname</label>
+                  </div>
+                </div>
+                <br>
+                <div class="col-lg-6 col-xs-12 mb-3 mb-lg-0">
+                  <div class="form-floating">
+                    <input type="text" class="form-control" id="floatingInputLN" placeholder="Lastname" asp-for="LastName">
+                    <label for="floatingInputLN" asp-for="LastName">Lastname</label>
+                  </div>
+                </div>
+              </div>
+    
+              <div class="form-floating mb-3">
+                <input type="text" class="form-control" id="floatingInputUN" placeholder="Username" asp-for="UserName">
+                <label for="floatingInputUN" asp-for="UserName">Username</label>
+              </div>
+              <div class="form-floating mb-3">
+                <input type="email" class="form-control" id="floatingInputEM" placeholder="name@example.com" asp-for="Email">
+                <label for="floatingInputEM" asp-for="Email">Email</label>
+              </div>
+              <div class="row mb-0">
+                <div class="col-lg-6 col-xs-12 mb-lg-0">
+                  <div class="form-floating mb-3">
+                    <input type="password" class="form-control" id="floatingPassword" placeholder="Password" asp-for="Password">
+                    <label for="floatingPassword" asp-for="Password">Password</label>
+                  </div>
+                </div>
+                <div class="col-lg-6 col-xs-12 mb-3 mb-lg-0">
+                  <div class="form-floating">
+                    <input type="password" class="form-control" id="floatingConfirmPassword" placeholder="Password" asp-for="ConfirmPassword">
+                    <label for="floatingConfirmPassword" asp-for="ConfirmPassword">Confirm Password</label>
+                  </div>
+                </div>
+              </div>
+              <div class="row px-2 justify-content-between">
+                <div class="col-12 col-md-6 mb-3 mb-lg-0">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="flexCheckDefault">
+                    <label class="form-check-label" for="flexCheckDefault">
+                      Show password
+                    </label>
+                  </div>
+                </div>
+              </div>
+              <div class="row gy-1 p-3">
+                <button type="submit" class="btn btn-primary">Register</button>
+                <button href="~/" class="btn btn-light">Cancel</button>
+              </div>
+            </form>
+            <div class="col">
+              <a href="~/Account/Login" class="text-primary">Sign in</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+            
+  </div>
+
+</div>
+
+@section scripts
+{
+  <script src="~/js/show-password.js"></script>
+}

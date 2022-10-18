@@ -6,6 +6,7 @@ using AVStack.IdentityServer.Common.Enums;
 using AVStack.IdentityServer.WebApi.Data.Entities;
 using AVStack.IdentityServer.WebApi.Models.Requests;
 using AVStack.IdentityServer.WebApi.Models.Responses;
+using AVStack.IdentityServer.WebApi.Services.Interfaces;
 using MediatR;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.WebUtilities;
@@ -14,13 +15,15 @@ namespace AVStack.IdentityServer.WebApi.Handlers
 {
     public class ForgotPasswordRequestHandler : IRequestHandler<ForgotPasswordRequest, IdentityResponse>
     {
+        private readonly IUserInteractionTokenService _userInteractionTokenService;
         private readonly UserManager<UserEntity> _userManager;
         private readonly IMediator _mediator;
 
-        public ForgotPasswordRequestHandler(UserManager<UserEntity> userManager, IMediator mediator)
+        public ForgotPasswordRequestHandler(UserManager<UserEntity> userManager, IMediator mediator, IUserInteractionTokenService userInteractionTokenService)
         {
             _userManager = userManager;
             _mediator = mediator;
+            _userInteractionTokenService = userInteractionTokenService;
         }
 
         public async Task<IdentityResponse> Handle(ForgotPasswordRequest request, CancellationToken cancellationToken)
@@ -47,21 +50,10 @@ namespace AVStack.IdentityServer.WebApi.Handlers
             {
                 FullName = entity.FirstName,
                 EmailAddress = entity.Email,
-                Callback = await CreateCallback(EventType.PasswordRecovery, entity)
+                Callback = await _userInteractionTokenService.CreateCallbackByEventType(EventType.PasswordRecovery, entity)
             }, cancellationToken);
 
             return response;
-        }
-
-        private async Task<string> CreateCallback(EventType eventType, UserEntity entity)
-        {
-            // TODO: Replace hardcoded uri
-            return QueryHelpers
-                .AddQueryString("https://localhost:5005/Account/PasswordReset", new Dictionary<string, string>
-                {
-                    {"token", await _userManager.GeneratePasswordResetTokenAsync(entity)},
-                    {"userId", entity.Id.ToString()}
-                });
         }
     }
 }

@@ -12,7 +12,8 @@ namespace AVStack.IdentityServer.WebApi.Controllers
         public string UsernameOrEmail { get; set; }
         [Required]
         public string Password { get; set; }
-        public bool RememberLogin { get; set; }
+
+        public bool RememberLogin { get; set; } = true;
         public string ReturnUrl { get; set; }
     }
 }

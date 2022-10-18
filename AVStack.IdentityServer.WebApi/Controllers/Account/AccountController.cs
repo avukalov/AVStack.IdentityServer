@@ -70,6 +70,13 @@ namespace AVStack.IdentityServer.WebApi.Controllers
             _identityOptions = identityOptions.Value;
             
         }
+        
+        [HttpGet]
+        public async Task<IActionResult> EmailConfirmationAsync(EmailConfirmationRequest request)
+        {
+            var result = await _mediator.Send(request);
+            return Redirect("~/");
+        }
 
         /// <summary>
         /// Entry point into the login workflow
@@ -100,7 +107,6 @@ namespace AVStack.IdentityServer.WebApi.Controllers
 
             if (button != "login")
             {
-                // TODO: Native Clients
                 if (context != null)
                 {
                     // if the user cancels, send a result back into IdentityServer as if they 
@@ -166,7 +172,6 @@ namespace AVStack.IdentityServer.WebApi.Controllers
                         //await _signInManager.SignInAsync(userEntity, authenticationProperties);
                         await HttpContext.SignInAsync(identityServerUser, authenticationProperties);
 
-                        // TODO: Native Clients
                         if (context != null)
                         {
                             if (context.IsNativeClient())
@@ -207,7 +212,6 @@ namespace AVStack.IdentityServer.WebApi.Controllers
             return View(vm);
         }
 
-        
         /// <summary>
         /// Show logout page
         /// </summary>
@@ -294,30 +298,25 @@ namespace AVStack.IdentityServer.WebApi.Controllers
             return Redirect("~/Diagnostics");
         }
         
-        [HttpPost()]
-        public async Task<IActionResult> SignUp([FromBody] SignUpRequest request)
+        [HttpPost]
+        public async Task<IActionResult> Register(SignUpRequest request)
         {
             var result = await _mediator.Send(request);
 
-            Response.StatusCode = (int)result.Status;
-            return new JsonResult(result);
+            return Redirect("~/Diagnostics");
         }
         
         [HttpGet]
-        public IActionResult Test()
+        public IActionResult Register()
         {
-            return Ok("test success");
+            return View();
         }
-        
         
         [HttpGet]
         public IActionResult AccessDenied()
         {
             return View();
         }
-        
-        
-
 
         /*****************************************/
         /* helper APIs for the AccountController */

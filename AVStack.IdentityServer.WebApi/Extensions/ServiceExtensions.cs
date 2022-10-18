@@ -22,6 +22,7 @@ using Microsoft.OpenApi.Models;
 using RabbitMQ.Client;
 using AVStack.IdentityServer.WebApi.Controllers;
 using AVStack.IdentityServer.WebApi.Models.Options;
+using AVStack.IdentityServer.WebApi.Services.Interfaces;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace AVStack.IdentityServer.WebApi.Extensions
@@ -53,6 +54,7 @@ namespace AVStack.IdentityServer.WebApi.Extensions
         {
             services.Configure<AccountOptions>(configuration.GetSection(nameof(AccountOptions)));
             services.Configure<IdentityOptions>(configuration.GetSection("AspNetIdentityOptions"));
+            services.Configure<AccountTokenConfirmationUrls>(configuration.GetSection("AccountTokenConfirmationUrls"));
         }
         
         private static void RegisterModels(this IServiceCollection services)
@@ -61,6 +63,7 @@ namespace AVStack.IdentityServer.WebApi.Extensions
         }
         private static void RegisterServices(this IServiceCollection services)
         {
+            services.AddScoped<IUserInteractionTokenService, UserInteractionTokenService>();
             // services.AddTransient<IReturnUrlParser, ReturnUrlParser>();
         }
 
@@ -150,7 +153,6 @@ namespace AVStack.IdentityServer.WebApi.Extensions
                         RaiseInformationEvents = false
                     };
                 })
-                // TODO: Add self sign cert for docker
                 .AddSigningCredential(certificate2)
                 //.AddDeveloperSigningCredential()
                 
@@ -179,9 +181,7 @@ namespace AVStack.IdentityServer.WebApi.Extensions
                     // options.EnableTokenCleanup = true;
                     // options.TokenCleanupInterval = 30;
                 })
-                .AddProfileService<ProfileService>()
-                // TODO: Add custom ProfileService 
-                ;
+                .AddProfileService<ProfileService>();
 
         }
         private static void ConfigureCors(this IServiceCollection services)
@@ -210,6 +210,7 @@ namespace AVStack.IdentityServer.WebApi.Extensions
         }
         private static void ConfigureWebApi(this IServiceCollection services)
         {
+            services.AddControllers();
             services.AddControllersWithViews(options =>
                 {
                     //options.Filters.Add(typeof(ValidateModelStateAttribute));

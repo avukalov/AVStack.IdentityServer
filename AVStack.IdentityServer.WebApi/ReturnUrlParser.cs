@@ -16,6 +16,7 @@ using System.Threading.Tasks;
 
 namespace AVStack.IdentityServer.WebApi
 {
+    // TODO: Check if ReturnUrlParser is necessary
     public class ReturnUrlParser : IReturnUrlParser
     {
         public static class ProtocolRoutePaths
@@ -62,7 +63,7 @@ namespace AVStack.IdentityServer.WebApi
             // had to add returnUrl.StartsWith("http://localhost:5000")
             // because when UI and API are not on the same host, the URL is not local
             // the condition here should be changed to either use configuration or just match domain
-            if (returnUrl.IsLocalUrl() || returnUrl.StartsWith("https://localhost:5005")) // TODO: Get from configuration
+            if (returnUrl.IsLocalUrl() || returnUrl.StartsWith("https://localhost:5005"))
             {
                 var index = returnUrl.IndexOf('?');
                 if (index >= 0)

@@ -11,6 +11,7 @@ using IdentityServer4.Models;
 using IdentityServer4.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Newtonsoft.Json;
 
 namespace AVStack.IdentityServer.WebApi.Services
 {
@@ -27,6 +28,7 @@ namespace AVStack.IdentityServer.WebApi.Services
             _roleManager = roleEntity;
         }
 
+        // TODO: Token missing most of claims 
         public Task GetProfileDataAsync(ProfileDataRequestContext context)
         {
             var user = _userManager.GetUserAsync(context.Subject).Result;
@@ -45,20 +47,20 @@ namespace AVStack.IdentityServer.WebApi.Services
         {
             var systemRoles = _roleManager.Roles.AsNoTracking().ToListAsync().Result;
             var userRoles = _userManager.GetRolesAsync(user).Result;
+
+            var hasuraClaims = new Dictionary<string, object>
+            {
+                {IdentityClaimDefaults.HasuraAllowedRoles, systemRoles.Select(r => r.Name).ToArray()},
+                {IdentityClaimDefaults.HasuraDefaultRole, IdentityRoleDefaults.User},
+                {IdentityClaimDefaults.HasuraRole, userRoles.First()},
+                {IdentityClaimDefaults.HasuraUserId, user.Id.ToString()},
+            };
             
-            // TODO: Improve hasura claims handling
             var claims = new List<Claim>
             {
-                // TODO: Implement support for more then one role assigned to user 
-                // new Claim(IdentityClaimDefaults.HasuraRole, GetHighestUserRole(systemRoles, userRoles)),
-                new Claim(IdentityClaimDefaults.HasuraRole, userRoles.First()),
-                new Claim(IdentityClaimDefaults.HasuraDefaultRole,IdentityRoleDefaults.User),
-                new Claim(
-                    IdentityClaimDefaults.HasuraAllowedRoles,
-                    JsonSerializer.Serialize(systemRoles.Select(r => r.Name).ToArray()),
-                        IdentityServerConstants.ClaimValueTypes.Json),
+                new Claim("hasura", JsonConvert.SerializeObject(hasuraClaims), IdentityServerConstants.ClaimValueTypes.Json)
             };
-
+            
             return Task.FromResult(claims);
         }
 

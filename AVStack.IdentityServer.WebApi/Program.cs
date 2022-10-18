@@ -3,6 +3,8 @@ using System.IO;
 using AVStack.IdentityServer.WebApi.Extensions;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Configuration;
 using Serilog;
 
 namespace AVStack.IdentityServer.WebApi
